@@ -35,7 +35,9 @@ if(BUILD_DA_VINCI)
 
 endif()
 
-
+if(_LINUX_)
+  set (CMAKE_CXX_FLAGS "-std=c++11")
+endif()
 
 if(_LINUX_)
 
