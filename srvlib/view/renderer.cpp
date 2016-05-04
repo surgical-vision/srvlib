@@ -6,7 +6,7 @@
 using namespace srvlib;
 using namespace srvlib::renderer;
 
-void srvlib::renderer::DrawModel(std::shared_ptr<BaseModel> model, std::shared_ptr<StereoCamera> camera, const bool is_left, const glm::mat4 &camera_pose, ci::gl::GlslProgRef shader){
+void srvlib::renderer::DrawModel(std::shared_ptr<Model> model, std::shared_ptr<StereoCamera> camera, const bool is_left, const glm::mat4 &camera_pose, ci::gl::GlslProgRef shader){
 
   ci::gl::enableDepthWrite();
   ci::gl::enableDepthRead();
@@ -27,7 +27,7 @@ void srvlib::renderer::DrawModel(std::shared_ptr<BaseModel> model, std::shared_p
 
 }
 
-void srvlib::renderer::DrawModel(ci::gl::VboMeshRef model, std::shared_ptr<StereoCamera> camera, const bool is_left, const glm::mat4 &camera_pose, ci::gl::GlslProgRef shader){
+void srvlib::renderer::DrawModel(ci::gl::VboMeshRef model, const glm::mat4 &model_transform, std::shared_ptr<StereoCamera> camera, const bool is_left, const glm::mat4 &camera_pose, ci::gl::GlslProgRef shader){
   
   ci::gl::enableDepthWrite();
   ci::gl::enableDepthRead();
@@ -41,6 +41,7 @@ void srvlib::renderer::DrawModel(ci::gl::VboMeshRef model, std::shared_ptr<Stere
   else
     camera->setupRightCamera(shader, camera_pose);
 
+  ci::gl::multModelMatrix(model_transform);
   ci::gl::draw(model);
 
   camera->unsetCameras();
@@ -48,16 +49,18 @@ void srvlib::renderer::DrawModel(ci::gl::VboMeshRef model, std::shared_ptr<Stere
 
 }
 
-void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, glm::ivec2 size, ci::gl::GlslProgRef shader){
+void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, const glm::ivec2 &eye_size, const glm::ivec2 &draw_size, ci::gl::GlslProgRef shader){
   
   ci::gl::disableDepthRead();
   ci::gl::disableDepthWrite();
 
   ci::gl::pushMatrices();
+  
+  auto vp = ci::gl::getViewport();
 
   ci::CameraOrtho o;
-  o.setOrtho(0.0f, (float)size[0], 0.0f, (float)size[1], (float)0, (float)1);
-
+  o.setOrtho(0.0f, (float)eye_size[0], 0.0f, (float)eye_size[1], (float)0, (float)1);
+  
   ci::gl::setProjectionMatrix(o.getProjectionMatrix());
 
   ci::gl::setModelMatrix(glm::mat4());
@@ -68,9 +71,11 @@ void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, glm::ivec2 size, 
   shader->bind();
   shader->uniform("tex0", 0);
 
-  ci::Rectf bounds(0, 0, size[0], size[1]);
+  ci::Rectf bounds(0, 0, draw_size[0], draw_size[1]);
+  ci::gl::viewport(draw_size);
   ci::gl::drawSolidRect(bounds, glm::vec2(0, 0), glm::vec2(1, 1));
-
+  ci::gl::viewport(vp);
+  
   image->unbind();
 
   ci::gl::popMatrices();
@@ -79,12 +84,14 @@ void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, glm::ivec2 size, 
   ci::gl::enableDepthWrite();
 }
 
-void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, glm::ivec2 size){
+void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, const glm::ivec2 &size){
 
   ci::gl::disableDepthRead();
   ci::gl::disableDepthWrite();
 
   ci::gl::pushMatrices();
+
+  auto vp = ci::gl::getViewport();
 
   ci::CameraOrtho o;
   o.setOrtho(0.0f, (float)size[0], 0.0f, (float)size[1], (float)0, (float)1);
@@ -94,7 +101,11 @@ void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, glm::ivec2 size){
   ci::gl::setModelMatrix(glm::mat4());
   ci::gl::setViewMatrix(glm::mat4());
 
+  ci::Rectf bounds(0, 0, size[0], size[1]);
+  ci::gl::viewport(size);
+  image->setTopDown();
   ci::gl::draw(image);
+  ci::gl::viewport(vp);
 
   ci::gl::popMatrices();
 

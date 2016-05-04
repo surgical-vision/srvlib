@@ -33,7 +33,7 @@ namespace srvlib {
         return cpu_frame.cols;
       }
       else if (is_gpu_frame()){
-        return gpu_frame->getWidth();
+        return gpu_frame->getWidth() * 2; // GPU frame is half width!!!
       }
       else{
         return 0;

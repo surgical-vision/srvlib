@@ -35,11 +35,14 @@ if(BUILD_DA_VINCI)
 
 endif()
 
+
+
 if(_LINUX_)
 
   option(BUILD_ROS "Build ROS support for Da Vinci" ON)
   if(BUILD_ROS)
- 
+    
+    add_definitions(-DUSE_ROS)
     find_package(roscpp REQUIRED) 
     include_directories(${roscpp_INCLUDE_DIRS})
     list(APPEND LINK_LIBS "${roscpp_LIBRARIES}" )
@@ -47,6 +50,19 @@ if(_LINUX_)
   endif()
 
 else(_WIN_)
+  
+  if( NOT CMAKE_SIZEOF_VOID_P EQUAL 8 ) #ISI api only supported 32 bit
+   
+    option(BUILD_ISI "Build ISI API support for Da Vinci" ON)
+    if(BUILD_ISI)
+   
+      add_definitions(-DUSE_ISI_API)
+      include_directories("C:/Program Files (x86)/ISI API 1.0/include/")
+      list(APPEND LINK_LIBS "C:/Program Files (x86)/ISI API 1.0/lib/isi_api.lib" )
+
+    endif() 
+  
+  endif( NOT CMAKE_SIZEOF_VOID_P EQUAL 8 )
 
 # include intutiive api stuff
 
@@ -68,8 +84,10 @@ if(BUILD_SDI_IO)
     include_directories(${roscpp_INCLUDE_DIRS})
 
   else(_WIN_)
-    list(APPEND HEADERS ${INCDIR}/io/video/sdi/DeckLinkAPI_h.h)
+
+    list(APPEND HEADERS ${INCDIR}/io/video/sdi/DeckLinkAPI.h)
     list(APPEND SOURCES io/video/sdi/DeckLinkAPI_i.c)
+    
   endif()
   
 endif()

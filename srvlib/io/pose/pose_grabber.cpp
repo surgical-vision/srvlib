@@ -53,7 +53,6 @@ std::string BasePoseGrabber::WriteSE3ToString(const glm::mat4 &mat){
 
 }
 
-
 BasePoseGrabber::BasePoseGrabber(const std::string &output_dir) : do_draw_(false) , save_dir_(output_dir) {
 
   std::stringstream ss;
@@ -181,8 +180,7 @@ bool PoseGrabber::LoadPose(const bool update_as_new){
   }
  
   // update the model with the pose
-  std::vector<glm::mat4> ret({ cached_model_pose_ });
-  model_->SetTransformSet(ret);
+  model_->SetBasePose(cached_model_pose_);
 
   return retval;
 
@@ -223,7 +221,6 @@ bool PoseGrabber::LoadFromFile(){
 
 }
 
-
 void PoseGrabber::WritePoseToStream()  {
 
   if (!ofs_.is_open()) {
@@ -235,7 +232,7 @@ void PoseGrabber::WritePoseToStream()  {
 
   if (!ofs_.is_open()) throw(std::runtime_error("Error, cannot open file"));
 
-  ofs_ << model_->Body().transform_ << "\n";
+  ofs_ << model_->GetPose() << "\n";
 
   ofs_ << "\n";
 
@@ -252,17 +249,22 @@ void PoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
 
   if (!ofs_.is_open()) throw(std::runtime_error("Error, cannot open file"));
 
-  ofs_ << glm::inverse(camera_pose) * model_->Body().transform_ << "\n";
+  ofs_ << glm::inverse(camera_pose) * (glm::mat4)model_->GetPose() << "\n";
 
   ofs_ << "\n";
 
 }
 
-BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir) : BasePoseGrabber(output_dir) {
+BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : BasePoseGrabber(output_dir) {
   
   try{
     model_.reset(new davinci::DaVinciInstrument());
-    model_->LoadData(reader.get_element("model-file"));
+    if (instrument_type == LND)
+      model_->LoadData(davinci::DaVinciInstrument::GetLargeNeedleDriver());
+    else if (instrument_type == NO_INST)
+      return;
+    else
+      throw std::runtime_error("Error no other instruments supported yet!");
   }
   catch (std::runtime_error){
     //no model (e.g. tracking camera)
@@ -270,22 +272,60 @@ BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const ConfigReader &reader, const
 
 }
 
-void BaseDaVinciPoseGrabber::convertFromDaVinciPose(const glm::mat4 &in_pose, glm::mat4 &out_pose){
-
-
-  out_pose = glm::mat4();
-
-  glm::mat4 flip;
-  flip[1][1] *= -1;
-  flip[2][2] *= -1;
-
-  flip = glm::inverse(flip);
-
-  out_pose = in_pose * flip;
+BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, davinci::DaVinciJoint target_joint, const std::string &output_dir, const LoadSource source) : BasePoseGrabber(output_dir), target_joint_(target_joint), source_(source) {
+  
+  if (target_joint_ == davinci::DaVinciJoint::PSM1 || target_joint_ == davinci::DaVinciJoint::PSM2 || target_joint_ == davinci::DaVinciJoint::PSM3){
+    model_.reset(new davinci::DaVinciInstrument());
+    if (instrument_type == LND)
+      model_->LoadData(davinci::DaVinciInstrument::GetLargeNeedleDriver());
+    else
+      throw std::runtime_error("Error no other instruments supported yet!");
+  }
 
 }
 
-DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir) : BaseDaVinciPoseGrabber(reader, output_dir) {
+
+DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const std::string &output_dir, LoadSource source) : DHDaVinciPoseGrabber(joint, NO_INST, output_dir, source) {}
+
+
+DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const InstrumentType instrument_type, const std::string &output_dir, LoadSource source) : BaseDaVinciPoseGrabber(instrument_type, joint, output_dir, source) {
+
+  if (load_source_ == FILE){
+    //
+  }
+  else if (load_source_ == ROS){
+
+  }
+  else if (load_source_ == ISI){
+#ifdef USE_ISI_API
+
+    const ISI_UINT password = strtol("1234567a", 0, 16);
+    ISI_STATUS status = isi_connect_ex("10.0.0.5", 5002, password);
+    if (status != ISI_SUCCESS)
+      throw(std::runtime_error("Error, could not connect to daVinci API!\n"));
+    
+    isi_subscribe_all_stream_fields();
+    isi_subscribe_all_events();
+
+    ISI_UINT ISI_API_RATE = 50;
+    status = isi_start_stream(ISI_API_RATE);
+    if (status != ISI_SUCCESS){
+      isi_stop_stream();
+      isi_disconnect();
+      throw(std::runtime_error("Failed to start stream\n"));
+    }
+#else
+    throw std::runtime_error("ISI Api support not built!");
+#endif
+  }
+  else{
+    throw std::runtime_error("Unsupported load type");
+  }
+
+
+}
+
+DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : BaseDaVinciPoseGrabber(instrument_type, reader, output_dir) {
 
   self_name_ = "dh-davinci-grabber";
   checkSelfName(reader.get_element("name"));
@@ -352,6 +392,17 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const ConfigReader &reader, const std
   
 }
 
+DHDaVinciPoseGrabber::~DHDaVinciPoseGrabber() { 
+
+  if (load_source_ == ISI){
+#ifdef USE_ISI_API
+    isi_disconnect();
+#endif
+  }
+
+}
+
+
 void DHDaVinciPoseGrabber::SetupOffsets(const std::string &base_offsets, const std::string &arm_offsets){
 
   std::stringstream ss;
@@ -399,9 +450,11 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
       ecm.jnt_pos[i] = arm_joints_[i] + arm_offsets_[i];
     }
 
-    buildKinematicChainECM1(chain_, ecm, model_->Shaft().transform_);
+    glm::mat4 base_pose;
+    buildKinematicChainECM1(chain_, ecm, base_pose);
+    model_->SetBasePose(base_pose);
 
-    return model_->Shaft().transform_;
+    return model_->GetPose();
 
   }
 
@@ -417,12 +470,16 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
       psm.jnt_pos[i] = arm_joints_[i] + arm_offsets_[i];
     }
 
+    glm::mat4 base_pose;
+    glm::vec4 articulation;
     if (target_joint_ == davinci::PSM1)
-      buildKinematicChainPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+      buildKinematicChainPSM1(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
     else if (target_joint_ == davinci::PSM2)
-      buildKinematicChainPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+      buildKinematicChainPSM2(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
 
-    return model_->Shaft().transform_;
+    model_->EditPose(glm::quat(base_pose), project(base_pose[3]), glm::vec3(articulation[0], articulation[1], articulation[2]));
+
+    return model_->GetShaftPose();
 
   }
   else{
@@ -435,8 +492,27 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
 bool DHDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
   if (update_as_new){
-    if (!ReadDHFromFiles(base_joints_, arm_joints_))
-      return false;
+    if (load_source_ == FILE){
+      if (!ReadDHFromFiles(base_joints_, arm_joints_))
+        return false;
+    }
+    else if (load_source_ == ISI){
+#ifdef USE_ISI_API
+      if (!LoadFromISI(base_joints_, arm_joints_))
+        return false;
+
+#else
+      throw std::runtime_error("Error, ISI API support not added!");
+#endif
+    }
+    else if (load_source_ == ROS){
+#ifdef USE_ROS
+      if (!LoadFromROS(base_joints_, arm_joints_))
+        return false;
+#else
+      throw std::runtime_error("Error, ROS support not added!");
+#endif
+    }
   }
 
   //don't care about the return.
@@ -444,12 +520,64 @@ bool DHDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
   // update the list of previous poses for plotting trajectories.
   if (update_as_new){
-    reference_frame_tracks_.push_back(model_->Shaft().transform_);
+    if (target_joint_ == davinci::ECM)
+      reference_frame_tracks_.push_back(model_->GetPose());
+    else
+      reference_frame_tracks_.push_back(model_->GetShaftPose());
   }
 
   return true;
 
 }
+
+#ifdef USE_ISI_API
+bool DHDaVinciPoseGrabber::LoadFromISI(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints){
+
+  assert(num_arm_joints_ == psm_arm_joints.size());
+  assert(num_base_joints_ == psm_base_joints.size());
+
+  try{
+
+    ISI_MANIP_INDEX mid;
+    if (target_joint_ == davinci::DaVinciJoint::PSM1){
+      mid == ISI_PSM1; 
+    }
+    else if (target_joint_ == davinci::DaVinciJoint::PSM2){
+      mid == ISI_PSM2;
+    }
+    else if (target_joint_ == davinci::DaVinciJoint::PSM3){
+      mid == ISI_PSM3;
+    }
+    else if(target_joint_ == davinci::DaVinciJoint::ECM){
+      mid == ISI_ECM;
+    }
+    else{
+      throw std::runtime_error("Error, bad joint type!");
+    }
+
+    ISI_STREAM_FIELD stream_data;
+
+    isi_get_stream_field(mid, ISI_JOINT_VALUES, &stream_data);
+    for (int i = 0; i != stream_data.count; i++){
+      psm_arm_joints[i] = stream_data.data[i];
+    }
+    
+
+    isi_get_stream_field(mid, ISI_SUJ_JOINT_VALUES, &stream_data);
+    for (int i = 0; i != stream_data.count; i++){
+      psm_base_joints[i] = stream_data.data[i];
+    }
+
+  }
+  catch (std::ifstream::failure){
+    do_draw_ = false;
+    return false;
+  }
+
+  return true;
+
+}
+#endif
 
 bool DHDaVinciPoseGrabber::ReadDHFromFiles(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints){
 
@@ -495,7 +623,7 @@ void DHDaVinciPoseGrabber::WritePoseToStream()  {
   if (!arm_ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
   if (!base_ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
 
-  se3_ofs_ << WriteSE3ToString(model_->Shaft().transform_) << "\n";
+  se3_ofs_ << WriteSE3ToString(model_->GetShaftPose()) << "\n";
   for (size_t i = 4; i < arm_joints_.size(); ++i){
     se3_ofs_ << arm_joints_[i] + arm_offsets_[i] << "\n";
   }
@@ -544,7 +672,7 @@ void DHDaVinciPoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
   if (!arm_ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
   if (!base_ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
 
-  se3_ofs_ << WriteSE3ToString( glm::inverse(camera_pose) * model_->Shaft().transform_) << "\n";
+  se3_ofs_ << WriteSE3ToString( glm::inverse(camera_pose) * (glm::mat4)model_->GetShaftPose()) << "\n";
   for (size_t i = 4; i < arm_joints_.size(); ++i){
     se3_ofs_ << arm_joints_[i] + arm_offsets_[i] << "\n";
   }
@@ -637,7 +765,7 @@ void SE3DaVinciPoseGrabber::SetOffsetsToNull() {
 
 }
 
-SE3DaVinciPoseGrabber::SE3DaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir, bool check_type) : BaseDaVinciPoseGrabber(reader, output_dir) {
+SE3DaVinciPoseGrabber::SE3DaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir, bool check_type) : BaseDaVinciPoseGrabber(instrument_type, reader, output_dir) {
 
   if (check_type){
     self_name_ = "se3-davinci-grabber";
@@ -827,15 +955,9 @@ void SE3DaVinciPoseGrabber::SetPose(glm::vec3 &translation, glm::quat &rotation,
 
   srvlib::math::set_translate(shaft_pose_, translation_);
 
-  model_->Shaft().transform_ = shaft_pose_;
+  model_->SetBasePose(shaft_pose_);
 
-  srvlib::davinci::PSMData psm;
-  for (size_t i = 0; i < num_wrist_joints_; ++i){
-    psm.jnt_pos[i] = wrist_dh_params_[i];
-  }
-
-  buildKinematicChainAtEndPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
-
+  model_->EditPose(glm::quat(shaft_pose_), project(shaft_pose_[3]), glm::vec3(wrist_dh_params_[0], wrist_dh_params_[1], wrist_dh_params_[2]));
 
 }
 
@@ -866,19 +988,10 @@ void SE3DaVinciPoseGrabber::EditPose(glm::vec3 &translation, glm::vec3 &rotation
   shaft_pose_ = MatrixFromIntrinsicEulers(current_rotation[2], current_rotation[1], current_rotation[0], "zyx") * current_user_supplied_offset_;
 
   srvlib::math::set_translate(shaft_pose_, translation_);
-  model_->Shaft().transform_ = shaft_pose_;
+  model_->SetBasePose(shaft_pose_);
 
-  srvlib::davinci::PSMData psm;
-  for (size_t i = 0; i < num_wrist_joints_; ++i){
-    psm.jnt_pos[i] = wrist_dh_params_[i];
-  }
-
-  buildKinematicChainAtEndPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+  model_->EditPose(glm::quat(shaft_pose_), project(shaft_pose_[3]), glm::vec3(wrist_dh_params_[0], wrist_dh_params_[1], wrist_dh_params_[2]));
   
-  return;
-
-
-
 }
 
 bool SE3DaVinciPoseGrabber::LoadPoseAsQuaternion(){
@@ -1057,17 +1170,7 @@ bool SE3DaVinciPoseGrabber::LoadPose(const bool update_as_new){
   // update the list of previous poses for plotting trajectories.
   reference_frame_tracks_.push_back(shaft_pose_);
 
-  model_->Shaft().transform_ = shaft_pose_;
-
-  srvlib::davinci::PSMData psm;
-  for (size_t i = 0; i < num_wrist_joints_; ++i){
-    psm.jnt_pos[i] = wrist_dh_params_[i] + wrist_offsets_[i];
-  }
-
-  if (target_joint_ == davinci::PSM1)
-    buildKinematicChainAtEndPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
-  else if (target_joint_ == davinci::PSM2)
-    buildKinematicChainAtEndPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+  model_->EditPose(glm::quat(shaft_pose_), project(shaft_pose_[3]), glm::vec3(wrist_dh_params_[0], wrist_dh_params_[1], wrist_dh_params_[2]));
 
   return true;
 
@@ -1084,7 +1187,7 @@ void SE3DaVinciPoseGrabber::WritePoseToStream() {
 
   if (!ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
 
-  ofs_ << WriteSE3ToString(model_->Shaft().transform_) << "\n";
+  ofs_ << WriteSE3ToString(model_->GetShaftPose()) << "\n";
   
   for (size_t i = 0; i < wrist_dh_params_.size(); ++i){
     ofs_ << wrist_dh_params_[i] << "\n";
@@ -1103,7 +1206,7 @@ void SE3DaVinciPoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
 
   if (!ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
 
-  ofs_ << WriteSE3ToString(glm::inverse(camera_pose) * model_->Shaft().transform_) << "\n";
+  ofs_ << WriteSE3ToString(glm::inverse(camera_pose) * (glm::mat4)model_->GetShaftPose()) << "\n";
   for (size_t i = 0; i < wrist_dh_params_.size(); ++i){
     ofs_ << wrist_dh_params_[i] << "\n";
   }
@@ -1125,14 +1228,18 @@ void DHDaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_left
 			psm.jnt_pos[i] = arm_joints_[i] + arm_offsets_[i];
 		}
 
+    glm::mat4 base_pose;
+    glm::vec4 articulation;
 		if (target_joint_ == davinci::PSM1)
-			buildKinematicChainPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
-		else if (target_joint_ == davinci::PSM2)
-			buildKinematicChainPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+      buildKinematicChainPSM1(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
+		else if (target_joint_ == davinci::PSM2)          
+      buildKinematicChainPSM2(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
 
-		head = model_->Head().transform_;
-		clasper_left = model_->Clasper1().transform_;
-		clasper_right = model_->Clasper2().transform_;
+    model_->EditPose(glm::quat(base_pose), project(base_pose[3]), glm::vec3(articulation[0], articulation[1], articulation[2]));
+
+		head = model_->GetHeadPose();
+    clasper_left = model_->GetClasper1Pose();
+    clasper_right = model_->GetClasper2Pose();
 
 	}
 	else{
@@ -1147,21 +1254,21 @@ void SE3DaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_lef
 
   if (target_joint_ == davinci::PSM1 || target_joint_ == davinci::PSM2){
   
-    model_->Shaft().transform_ = shaft_pose_;
+    //model_->Shaft().transform_ = shaft_pose_;
 
     srvlib::davinci::PSMData psm;
     for (size_t i = 0; i < num_wrist_joints_; ++i){
       psm.jnt_pos[i] = wrist_dh_params_[i];
     }
     
-    if (target_joint_ == davinci::PSM1)
-      buildKinematicChainPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
-    else if (target_joint_ == davinci::PSM2)
-      buildKinematicChainPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+    //if (target_joint_ == davinci::PSM1)
+    //  buildKinematicChainPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+    //else if (target_joint_ == davinci::PSM2)
+    //  buildKinematicChainPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
 
-    head = model_->Head().transform_;
-    clasper_left = model_->Clasper1().transform_;
-    clasper_right = model_->Clasper2().transform_;
+    //head = model_->Head().transform_;
+    //clasper_left = model_->Clasper1().transform_;
+    //clasper_right = model_->Clasper2().transform_;
 
   }
   else{
@@ -1248,25 +1355,14 @@ bool QuaternionDaVinciPoseGrabber::LoadPose(const bool update_as_new){
     }
   }
 
-  // update the model with the pose
-  model_->Shaft().transform_ = shaft_pose_;
-
-  srvlib::davinci::PSMData psm;
-  for (size_t i = 0; i < num_wrist_joints_; ++i){
-    psm.jnt_pos[i] = wrist_dh_params_[i];
-  }
-
-  if (target_joint_ == davinci::PSM1)
-    buildKinematicChainAtEndPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
-  else if (target_joint_ == davinci::PSM2)
-    buildKinematicChainAtEndPSM2(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
+  model_->EditPose(glm::quat(shaft_pose_), project(shaft_pose_[3]), glm::vec3(wrist_dh_params_[0], wrist_dh_params_[1], wrist_dh_params_[2]));
 
   return true;
 
 
 }
 
-QuaternionDaVinciPoseGrabber::QuaternionDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir) : SE3DaVinciPoseGrabber(reader, output_dir, false) {
+QuaternionDaVinciPoseGrabber::QuaternionDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : SE3DaVinciPoseGrabber(instrument_type, reader, output_dir, false) {
 
   self_name_ = "quaternion-pose-grabber";
   checkSelfName(reader.get_element("name"));

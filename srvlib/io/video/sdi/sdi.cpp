@@ -74,9 +74,17 @@ void SDICameraIO::SetupInput(const size_t device_index, BMDConfig &config, const
 
 }
 
-void SDICameraIO::SetupOutput(const size_t device_index, BMDConfig &config, const BMDDisplayMode target_display_mode, const size_t frame_width, const size_t frame_height){
+void SDICameraIO::SetupOutput(const size_t device_index, BMDConfig &config, const BMDDisplayMode target_display_mode, const size_t frame_width, const size_t frame_height, const size_t offset){
 
   playout_.reset(new PlayoutDevice(device_index, config, target_display_mode, frame_width, frame_height));
+  if (offset != 0)
+    playout_->SetOffsetToStream(offset);
+
+}
+
+void SDICameraIO::SetOffsetToPlayout(const size_t offset_val){
+
+  playout_->SetOffsetToStream(offset_val);
 
 }
 
@@ -160,7 +168,7 @@ void SDICameraIO::DrawOnWindow(std::shared_ptr<VideoFrame> frame, const ci::Rect
   if (clear)  
     ci::gl::clear(ci::Color(0.5, 0.1, 0.0), true);
 
-  renderer::DrawTexture(frame->gpu_frame, glm::ivec2(bounds.getWidth(), bounds.getHeight()), ycrcb_shader_);
+  renderer::DrawTexture(frame->gpu_frame, glm::ivec2(frame->GetWidth(), frame->GetHeight()), glm::ivec2(bounds.getWidth(), bounds.getHeight()), ycrcb_shader_);
 
  
 

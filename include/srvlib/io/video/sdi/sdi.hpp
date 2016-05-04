@@ -25,7 +25,8 @@ namespace srvlib {
 
       void SetupInput(const std::string &input_file);
       void SetupInput(const size_t device_index, BMDConfig &config, const size_t width, const size_t height);
-      void SetupOutput(const size_t device_index, BMDConfig &config, const BMDDisplayMode target_display_mode, const size_t frame_width, const size_t frame_height);
+      void SetupOutput(const size_t device_index, BMDConfig &config, const BMDDisplayMode target_display_mode, const size_t frame_width, const size_t frame_height, const size_t offset);
+      void SetOffsetToPlayout(const size_t offset_val);
 
       /**
       * Read the next frame.

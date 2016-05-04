@@ -25,36 +25,21 @@ This file was based on work by Philip Pratt, Imperial College London. Used with 
 #include <vector>
 
 #include <srvlib/model/model.hpp>
+#include <cinder/app/App.h>
 
+#include <srvlib/utils/math.hpp>
 
-
-#define _00 0
-#define _10 1
-#define _20 2
-#define _30 3
-#define _01 4
-#define _11 5
-#define _21 6
-#define _31 7
-#define _02 8
-#define _12 9
-#define _22 10
-#define _32 11
-#define _03 12  
-#define _13 13
-#define _23 14
-#define _33 15
-
-typedef float GLfloat;
 
 namespace srvlib {
 
   namespace davinci {
 
 
-    class DaVinciInstrument : public BaseModel {
+    class DaVinciInstrument : public Model {
 
     public:
+
+      static std::string GetLargeNeedleDriver(){ return cinder::app::getAssetPath("large_needle_driver").string(); }
 
       virtual void Draw() const;
 
@@ -62,7 +47,6 @@ namespace srvlib {
       void DrawLeftClasper() const;
       void DrawRightClasper() const;
       void DrawHead() const;
-
 
       virtual void LoadData(const std::string &datafile_path);
 
@@ -75,22 +59,24 @@ namespace srvlib {
       void UpdatePose(const glm::vec3 &euler_update, const std::string &euler_order, const bool use_intrinsic_eulers, const glm::vec3 &translation_update, const glm::vec3 &articulation_update);
       void EditPose(const glm::vec3 &euler_rotation, const std::string &euler_order, const bool use_intrinsic_eulers, const glm::vec3 &translation, const glm::vec3 &articulation);
 
-      RenderData &Shaft() { return shaft_; }
-      RenderData &Head() { return head_; }
-      RenderData &Clasper1() { return clasper1_; }
-      RenderData &Clasper2() { return clasper2_; }
+      DHNode::Ptr DaVinciInstrument::Shaft(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(0)); }
+      DHNode::Ptr DaVinciInstrument::Head(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(1)); }
+      DHNode::Ptr DaVinciInstrument::ClasperBase(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(2)); }
+      DHNode::Ptr DaVinciInstrument::Clasper1(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(4)); }
+      DHNode::Ptr DaVinciInstrument::Clasper2(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(5)); }
+      DHNode::ConstPtr DaVinciInstrument::Shaft() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(0)); }
+      DHNode::ConstPtr DaVinciInstrument::Head() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(1)); }
+      DHNode::ConstPtr DaVinciInstrument::ClasperBase() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(2)); }
+      DHNode::ConstPtr DaVinciInstrument::Clasper1() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(4)); }
+      DHNode::ConstPtr DaVinciInstrument::Clasper2() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(5)); }
 
-      const RenderData &Shaft() const { return shaft_; }
-      const RenderData &Head() const { return head_; }
-      const RenderData &Clasper1() const { return clasper1_; }
-      const RenderData &Clasper2() const { return clasper2_; }
-
+      Pose GetShaftPose() const { return Shaft()->GetWorldTransform(base_pose_); }
+      Pose GetHeadPose() const { return Head()->GetWorldTransform(base_pose_); }
+      Pose GetClasperBasePose() const { return ClasperBase()->GetWorldTransform(base_pose_); }
+      Pose GetClasper1Pose() const { return Clasper1()->GetWorldTransform(base_pose_); }
+      Pose GetClasper2Pose() const { return Clasper2()->GetWorldTransform(base_pose_); }
+      
     protected:
-
-      RenderData shaft_;
-      RenderData head_;
-      RenderData clasper1_;
-      RenderData clasper2_;
 
     };
 
@@ -243,53 +229,6 @@ namespace srvlib {
     };
 
     /**
-    * Helper function to initialise a 4x4 rigid body transform to the indentity matrix. Uses OpenGL format so matrix is column major.
-    * @param[out] The identity matrix.
-    */
-    template<typename T>
-    void glhSetIdentity(T* A){
-      A[_00] = (T)1.0; A[_01] = (T)0.0; A[_02] = (T)0.0; A[_03] = (T)0.0;
-      A[_10] = (T)0.0; A[_11] = (T)1.0; A[_12] = (T)0.0; A[_13] = (T)0.0;
-      A[_20] = (T)0.0; A[_21] = (T)0.0; A[_22] = (T)1.0; A[_23] = (T)0.0;
-      A[_30] = (T)0.0; A[_31] = (T)0.0; A[_32] = (T)0.0; A[_33] = (T)1.0;
-
-    }
-
-
-    /**
-    * Helper function to multiply two matrices in the order BA. Uses OpenGL format so matrix is column major.
-    * @param[in] A The right matrix.
-    * @param[in,out] B The left matrix. Also stores the result.
-    */
-
-    // Matrix multiplication (B = BA)
-    template<typename T>
-    void glhMultMatrixRight(const T* A, T* B){
-
-      T M[16];
-      M[_00] = B[_00] * A[_00] + B[_01] * A[_10] + B[_02] * A[_20] + B[_03] * A[_30];
-      M[_10] = B[_10] * A[_00] + B[_11] * A[_10] + B[_12] * A[_20] + B[_13] * A[_30];
-      M[_20] = B[_20] * A[_00] + B[_21] * A[_10] + B[_22] * A[_20] + B[_23] * A[_30];
-      M[_30] = B[_30] * A[_00] + B[_31] * A[_10] + B[_32] * A[_20] + B[_33] * A[_30];
-      M[_01] = B[_00] * A[_01] + B[_01] * A[_11] + B[_02] * A[_21] + B[_03] * A[_31];
-      M[_11] = B[_10] * A[_01] + B[_11] * A[_11] + B[_12] * A[_21] + B[_13] * A[_31];
-      M[_21] = B[_20] * A[_01] + B[_21] * A[_11] + B[_22] * A[_21] + B[_23] * A[_31];
-      M[_31] = B[_30] * A[_01] + B[_31] * A[_11] + B[_32] * A[_21] + B[_33] * A[_31];
-      M[_02] = B[_00] * A[_02] + B[_01] * A[_12] + B[_02] * A[_22] + B[_03] * A[_32];
-      M[_12] = B[_10] * A[_02] + B[_11] * A[_12] + B[_12] * A[_22] + B[_13] * A[_32];
-      M[_22] = B[_20] * A[_02] + B[_21] * A[_12] + B[_22] * A[_22] + B[_23] * A[_32];
-      M[_32] = B[_30] * A[_02] + B[_31] * A[_12] + B[_32] * A[_22] + B[_33] * A[_32];
-      M[_03] = B[_00] * A[_03] + B[_01] * A[_13] + B[_02] * A[_23] + B[_03] * A[_33];
-      M[_13] = B[_10] * A[_03] + B[_11] * A[_13] + B[_12] * A[_23] + B[_13] * A[_33];
-      M[_23] = B[_20] * A[_03] + B[_21] * A[_13] + B[_22] * A[_23] + B[_23] * A[_33];
-      M[_33] = B[_30] * A[_03] + B[_31] * A[_13] + B[_32] * A[_23] + B[_33] * A[_33];
-
-      for (unsigned int i = 0; i < 16; i++)
-        B[i] = M[i];
-
-    }
-
-    /**
     * Transform a reference frame A on a rigid body by a GeneralFrame transform as A = A*frame
     * @param[in] frame The rigid body reference frame transform.
     * @param[in,out] A The current reference frame which is updated by frame.
@@ -304,7 +243,7 @@ namespace srvlib {
     * @param[in] theta The angle about the common normal between the links that transform describes.
     * @param[out] A The output transformation matrix.
     */
-    void glhDenavitHartenberg(const GLfloat a, const GLfloat alpha, const GLfloat d, const GLfloat theta, GLfloat *A);
+    //void glhDenavitHartenberg(const GLfloat a, const GLfloat alpha, const GLfloat d, const GLfloat theta, GLfloat *A);
 
     /**
     * Transform a reference frame A on a rigid body by a DenavitHartenberg transform as A = A*frame. The DH frame has moved from its 'home' position which we specified in the DH parameters when we constructed it to a new position by rotation or translating by the amount @delta.
@@ -325,6 +264,7 @@ namespace srvlib {
     * @param[out] grip2 The transform from the robot world coordinates to second instrument grip.
     */
     void buildKinematicChainPSM1(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, glm::mat4 &wrist_pitch, glm::mat4 &grip1, glm::mat4 &grip2);
+    void buildKinematicChainPSM1(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, float &wrist_pitch, float &clasper_angle, float &grip1, float &grip2);
 
     /**
     * Build the kinematic chain for PSM1 when we know the transform from camera to roll coordinates (for example because we tracked its pose using a vision method).
@@ -349,6 +289,7 @@ namespace srvlib {
     * @param[out] grip2 The transform from the robot world coordinates to second instrument grip.
     */
     void buildKinematicChainPSM2(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, glm::mat4 &wrist_pitch, glm::mat4 &grip1, glm::mat4 &grip2);
+    void buildKinematicChainPSM2(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, float &wrist_pitch, float &clasper_angle, float &grip1, float &grip2);
 
     /**
     * Build the kinematic chain for PSM2 when we know the transform from camera to roll coordinates (for example because we tracked its pose using a vision method).

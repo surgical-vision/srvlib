@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace srvlib;
 
-ci::JsonTree BaseModel::OpenFile(const std::string &datafile_path) const {
+ci::JsonTree Model::OpenFile(const std::string &datafile_path) const {
 
   boost::filesystem::path p(datafile_path);
 
@@ -47,23 +47,27 @@ ci::JsonTree BaseModel::OpenFile(const std::string &datafile_path) const {
 
 }
 
-void BaseModel::InternalDraw(const RenderData &rd, const float inc) const {
+Pose Model::GetPose() const {
+
+  return base_pose_;
+
+}
+
+void Model::InternalDraw(Node::ConstPtr rd, const float inc) const {
 
   ci::gl::pushModelView();
-
-  ci::gl::multModelMatrix(rd.transform_);
-
-  ci::app::console() << "MODEL VIEW 2 = \n" << ci::gl::getModelView() << std::endl;
   
-  ci::gl::ScopedTextureBind tex_scope(rd.texture_);
+  ci::gl::multModelMatrix(rd->GetWorldTransform(base_pose_));
+
+  ci::gl::ScopedTextureBind tex_scope(rd->GetTexture());
   
-  ci::gl::draw(rd.vbo_);
+  ci::gl::draw(rd->GetMesh());
 
   ci::gl::popModelView();
 
 }
 
-void BaseModel::LoadComponent(const ci::JsonTree &tree, BaseModel::RenderData &target, const std::string &root_dir){
+void Model::LoadComponent(const ci::JsonTree &tree, Node::Ptr target, const std::string &root_dir){
 
   boost::filesystem::path obj_file = boost::filesystem::path(root_dir) / boost::filesystem::path(tree["obj-file"].getValue<std::string>());
   if (!boost::filesystem::exists(obj_file)) throw(std::runtime_error("Error, the file doesn't exist!\n"));
@@ -77,18 +81,18 @@ void BaseModel::LoadComponent(const ci::JsonTree &tree, BaseModel::RenderData &t
   
   if (has_texture = boost::filesystem::exists(tex_file)){
     ci::gl::Texture::Format format;
-    target.texture_ = ci::gl::Texture::create(ci::loadImage((tex_file.string())), format);
+    target->GetTexture() = ci::gl::Texture::create(ci::loadImage((tex_file.string())), format);
   }
 
   ci::ObjLoader loader(ci::loadFile(obj_file.string()), ci::loadFile(mat_file.string()), true, true, true);
-  target.vbo_ = ci::gl::VboMesh::create(loader);
+  target->GetMesh() = ci::gl::VboMesh::create(loader);
 
 
 }
 
 void Model::Draw() const {
 
-  InternalDraw(body_);
+  InternalDraw(internal_model_);
 
 }
 
@@ -96,16 +100,6 @@ void Model::LoadData(const std::string &datafile_path){
 
   ci::JsonTree tree = OpenFile(datafile_path);
 
-  LoadComponent(tree, body_, boost::filesystem::path(datafile_path).parent_path().string());
+  LoadComponent(tree, internal_model_, boost::filesystem::path(datafile_path).parent_path().string());
 
-}
-
-std::vector<glm::mat4> Model::GetTransformSet() const{
-  return std::vector<glm::mat4>({ body_.transform_ });
-}
-
-
-void Model::SetTransformSet(const std::vector<glm::mat4> &transforms){
-  assert(transforms.size() == 0);
-  body_.transform_ = transforms[0];
 }

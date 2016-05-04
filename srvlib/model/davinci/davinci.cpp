@@ -21,29 +21,40 @@ This file was based on work by Philip Pratt, Imperial College London. Used with 
 **/
 
 #include <srvlib/model/davinci/davinci.hpp>
+#include <srvlib/utils/math.hpp>
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 using namespace srvlib::davinci;
+using namespace srvlib;
 
 const float PI = 3.14159265358979323846f;
 const float PI_2 = 1.57079632679489661923f;
 const float PI_4 = 0.785398163397448309616f;
 
-// da Vinci coordinates are in meters but we always work in mm.
-const double SCALE = 1000;
 
 void DaVinciInstrument::UpdatePose(const glm::vec4 &quaternion_update, const glm::vec3 &translation_update, const glm::vec3 &articulation_update){
 
+  base_pose_.UpdatePose(std::vector<float>({ translation_update[0], translation_update[1], translation_update[2], quaternion_update.w, quaternion_update.x, quaternion_update.y, quaternion_update.z }));
 
+  Head()->UpdateThisNode(articulation_update[0]);
+  ClasperBase()->UpdateThisNode(articulation_update[1]);
+  Clasper1()->UpdateThisNode(articulation_update[2]);
+  Clasper1()->UpdateThisNode(articulation_update[2]);
+  
 
 }
 
 void DaVinciInstrument::EditPose(const glm::quat &rotation, const glm::vec3 &translation, const glm::vec3 &articulation){
 
+  base_pose_.SetPose(std::vector<float>({ translation[0], translation[1], translation[2], rotation.w, rotation.x, rotation.y, rotation.z }));
 
+  Head()->SetUpdateThisNode(articulation[0]);
+  ClasperBase()->SetUpdateThisNode(articulation[1]);
+  Clasper1()->SetUpdateThisNode(articulation[2]);
+  Clasper1()->SetUpdateThisNode(articulation[2]);
 
 }
 
@@ -61,60 +72,67 @@ void DaVinciInstrument::EditPose(const glm::vec3 &euler_rotation, const std::str
 
 void DaVinciInstrument::Draw() const {
 
-  InternalDraw(shaft_);
-  InternalDraw(head_);
-  InternalDraw(clasper1_);
-  InternalDraw(clasper2_);
+  InternalDraw(Shaft());
+  InternalDraw(Head());
+  InternalDraw(Clasper1());
+  InternalDraw(Clasper2());
 
 }
 
-void DaVinciInstrument::LoadData(const std::string &datafile_path){
+void DaVinciInstrument::LoadData(const std::string &root_dir){
 
-  ci::JsonTree tree = OpenFile(datafile_path);
+  try{
+    ci::JsonTree tree = OpenFile(root_dir + "/model.json");
 
-  LoadComponent(tree.getChild("shaft"), shaft_, boost::filesystem::path(datafile_path).parent_path().string());
-  LoadComponent(tree.getChild("head"), head_, boost::filesystem::path(datafile_path).parent_path().string());
-  LoadComponent(tree.getChild("clasper1"), clasper1_, boost::filesystem::path(datafile_path).parent_path().string());
-  LoadComponent(tree.getChild("clasper2"), clasper2_, boost::filesystem::path(datafile_path).parent_path().string());
+    internal_model_.reset(new DHNode);
+    size_t start_idx = 0;
+    internal_model_->LoadData(tree.getChild("root"), 0x0, internal_model_, root_dir, start_idx);
 
+  }
+  catch (std::runtime_error){
+
+  }
 }
 
 std::vector<glm::mat4> DaVinciInstrument::GetTransformSet() const{
-  return std::vector<glm::mat4>({ shaft_.transform_, head_.transform_, clasper1_.transform_, clasper2_.transform_ });
+  throw std::runtime_error("");
+  return std::vector<glm::mat4>();
+  //return std::vector<glm::mat4>({ shaft_.transform_, head_.transform_, clasper1_.transform_, clasper2_.transform_ });
 }
 
 void DaVinciInstrument::SetTransformSet(const std::vector<glm::mat4> &transforms){
+  throw std::runtime_error("");
 
-  assert(transforms.size() == 4);
-  shaft_.transform_ = transforms[0];
-  head_.transform_ = transforms[1];
-  clasper1_.transform_ = transforms[2];
-  clasper2_.transform_ = transforms[3];
+  //assert(transforms.size() == 4);
+  //shaft_.transform_ = transforms[0];
+  //head_.transform_ = transforms[1];
+  //clasper1_.transform_ = transforms[2];
+  //clasper2_.transform_ = transforms[3];
 
 }
 
 void DaVinciInstrument::DrawBody() const{
 
-  InternalDraw(shaft_);
+  InternalDraw(Shaft());
 
 }
 
 void DaVinciInstrument::DrawLeftClasper() const{
 
-  InternalDraw(clasper1_);
+  InternalDraw(Clasper1());
 
 }
 
 
 void DaVinciInstrument::DrawRightClasper() const{
 
-  InternalDraw(clasper2_);
+  InternalDraw(Clasper2());
 
 }
 
 void DaVinciInstrument::DrawHead() const{
 
-  InternalDraw(head_);
+  InternalDraw(Head());
 
 }
 
@@ -206,6 +224,7 @@ DaVinciKinematicChain::DaVinciKinematicChain(void){
 void srvlib::davinci::extendChain(const GeneralFrame& frame, GLfloat* A) {
 
   GLfloat G[16];
+  math::glhSetIdentity(G);
 
   G[_00] = frame.mR00;
   G[_10] = frame.mR10;
@@ -224,56 +243,57 @@ void srvlib::davinci::extendChain(const GeneralFrame& frame, GLfloat* A) {
   G[_23] = frame.mZ * SCALE;
   G[_33] = 1.0;
 
-  glhMultMatrixRight(G, A);
+  math::glhMultMatrixRight(G, A);
 
 }
 
-void srvlib::davinci::glhDenavitHartenberg(GLfloat a, GLfloat alpha, GLfloat d, GLfloat theta, GLfloat* A) {
-
-  GLfloat sa = sin(alpha);
-  GLfloat ca = cos(alpha);
-  GLfloat st = sin(theta);
-  GLfloat ct = cos(theta);
-
-  A[_00] = ct;
-  A[_10] = ca * st;
-  A[_20] = sa * st;
-  A[_30] = 0.0;
-  A[_01] = -st;
-  A[_11] = ca * ct;
-  A[_21] = sa * ct;
-  A[_31] = 0.0;
-  A[_02] = 0.0;
-  A[_12] = -sa;
-  A[_22] = ca;
-  A[_32] = 0.0;
-  A[_03] = a;
-  A[_13] = -sa * d;
-  A[_23] = ca * d;
-  A[_33] = 1.0;
-
-}
+//void srvlib::davinci::glhDenavitHartenberg(GLfloat a, GLfloat alpha, GLfloat d, GLfloat theta, GLfloat* A) {
+//
+//  GLfloat sa = sin(alpha);
+//  GLfloat ca = cos(alpha);
+//  GLfloat st = sin(theta);
+//  GLfloat ct = cos(theta);
+//
+//  A[_00] = ct;
+//  A[_10] = ca * st;
+//  A[_20] = sa * st;
+//  A[_30] = 0.0;
+//  A[_01] = -st;
+//  A[_11] = ca * ct;
+//  A[_21] = sa * ct;
+//  A[_31] = 0.0;
+//  A[_02] = 0.0;
+//  A[_12] = -sa;
+//  A[_22] = ca;
+//  A[_32] = 0.0;
+//  A[_03] = a;
+//  A[_13] = -sa * d;
+//  A[_23] = ca * d;
+//  A[_33] = 1.0;
+//
+//}
 
 void srvlib::davinci::extendChain(const DenavitHartenbergFrame& frame, GLfloat* A, float delta = 0.0) {
 
   GLfloat DH[16];
+  math::glhSetIdentity(DH);
 
   switch (frame.mJointType)
   {
   case JointTypeEnum::FIXED:
-    glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, frame.mD * SCALE, frame.mTheta, DH);
+    math::glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, frame.mD * SCALE, frame.mTheta, DH);
     break;
 
   case JointTypeEnum::ROTARY:
-    glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, frame.mD * SCALE, frame.mTheta + delta, DH);
+    math::glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, frame.mD * SCALE, frame.mTheta + delta, DH);
     break;
 
   case JointTypeEnum::PRISMATIC:
-    glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, (frame.mD + delta) * SCALE, frame.mTheta, DH);
+    math::glhDenavitHartenberg(frame.mA * SCALE, frame.mAlpha, (frame.mD + delta) * SCALE, frame.mTheta, DH);
     break;
   }
 
-  glhMultMatrixRight(DH, A);
+  math::glhMultMatrixRight(DH, A);
 
 }
 
@@ -281,7 +301,7 @@ void srvlib::davinci::extendChain(const DenavitHartenbergFrame& frame, GLfloat* 
 void srvlib::davinci::buildKinematicChainPSM2(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, glm::mat4 &wrist_pitch, glm::mat4 &grip1, glm::mat4 &grip2) {
 
   GLfloat A[16];
-  glhSetIdentity(A);
+  math::glhSetIdentity(A);
 
   extendChain(mDaVinciChain.mWorldOriginSUJ2Origin[0], A);
   extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[0], A, psm.sj_joint_angles[0]);
@@ -323,9 +343,9 @@ void srvlib::davinci::buildKinematicChainPSM2(DaVinciKinematicChain &mDaVinciCha
   glm::mat4 grip1d = grip1;
   glm::mat4 grip2d = grip2;
 
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
   clasper_rotation = glm::rotate((float)(-0.5*clasper_angle), glm::vec3(0, 1, 0));
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
 
   grip1 = grip1d;
   grip2 = grip2d;
@@ -361,9 +381,9 @@ void srvlib::davinci::buildKinematicChainAtEndPSM1(DaVinciKinematicChain &mDaVin
   glm::mat4 grip1d = grip1;
   glm::mat4 grip2d = grip2;
 
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
   clasper_rotation = glm::rotate(-clasper_angle, glm::vec3(0, 1, 0));
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
 
   grip1 = grip1d;
   grip2 = grip2d;
@@ -373,7 +393,7 @@ void srvlib::davinci::buildKinematicChainAtEndPSM1(DaVinciKinematicChain &mDaVin
 void srvlib::davinci::buildKinematicChainECM1(DaVinciKinematicChain &mDaVinciChain, const ECMData& ecm, glm::mat4 &world_to_camera_transform) {
 
   GLfloat A[16];
-  glhSetIdentity(A);
+  math::glhSetIdentity(A);
 
   extendChain(mDaVinciChain.mWorldOriginSUJ3Origin[0], A);
   extendChain(mDaVinciChain.mSUJ3OriginSUJ3Tip[0], A, ecm.sj_joint_angles[0]);
@@ -421,19 +441,75 @@ void srvlib::davinci::buildKinematicChainAtEndPSM2(DaVinciKinematicChain &mDaVin
   glm::mat4 grip1d = grip1;
   glm::mat4 grip2d = grip2;
 
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
   clasper_rotation = glm::rotate(-clasper_angle, glm::vec3(0, 1, 0));
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
 
   grip1 = grip1d;
   grip2 = grip2d;
 
 }
 
+
+void srvlib::davinci::buildKinematicChainPSM1(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, float &wrist_pitch, float &clasper_angle, float &grip1, float &grip2){
+
+  GLfloat A[16];
+  math::glhSetIdentity(A);
+
+  extendChain(mDaVinciChain.mWorldOriginSUJ1Origin[0], A);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[0], A, psm.sj_joint_angles[0]);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[1], A, psm.sj_joint_angles[1]);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[2], A, psm.sj_joint_angles[2]);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[3], A, psm.sj_joint_angles[3]);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[4], A, psm.sj_joint_angles[4]);
+  extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[5], A, psm.sj_joint_angles[5]);
+
+  extendChain(mDaVinciChain.mSUJ1TipPSM1Origin[0], A);
+  extendChain(mDaVinciChain.mPSM1OriginPSM1Tip[0], A, psm.jnt_pos[0]);
+  extendChain(mDaVinciChain.mPSM1OriginPSM1Tip[1], A, psm.jnt_pos[1]);
+  extendChain(mDaVinciChain.mPSM1OriginPSM1Tip[2], A, psm.jnt_pos[2]);
+
+  extendChain(mDaVinciChain.mPSM1OriginPSM1Tip[3], A, psm.jnt_pos[3]);
+  roll = glm::make_mat4(A);
+  wrist_pitch = psm.jnt_pos[4];
+  clasper_angle = psm.jnt_pos[5];
+  grip1 = psm.jnt_pos[6];
+  grip2 = psm.jnt_pos[6];
+
+}
+
+void srvlib::davinci::buildKinematicChainPSM2(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, float &wrist_pitch, float &clasper_angle, float &grip1, float &grip2){
+
+  GLfloat A[16];
+  math::glhSetIdentity(A);
+
+  extendChain(mDaVinciChain.mWorldOriginSUJ2Origin[0], A);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[0], A, psm.sj_joint_angles[0]);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[1], A, psm.sj_joint_angles[1]);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[2], A, psm.sj_joint_angles[2]);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[3], A, psm.sj_joint_angles[3]);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[4], A, psm.sj_joint_angles[4]);
+  extendChain(mDaVinciChain.mSUJ2OriginSUJ2Tip[5], A, psm.sj_joint_angles[5]);
+
+  extendChain(mDaVinciChain.mSUJ2TipPSM2Origin[0], A);
+  extendChain(mDaVinciChain.mPSM2OriginPSM2Tip[0], A, psm.jnt_pos[0]);
+  extendChain(mDaVinciChain.mPSM2OriginPSM2Tip[1], A, psm.jnt_pos[1]);
+  extendChain(mDaVinciChain.mPSM2OriginPSM2Tip[2], A, psm.jnt_pos[2]);
+
+  extendChain(mDaVinciChain.mPSM2OriginPSM2Tip[3], A, psm.jnt_pos[3]);
+  roll = glm::make_mat4(A);
+  wrist_pitch = psm.jnt_pos[4];
+  clasper_angle = psm.jnt_pos[5];
+  grip1 = psm.jnt_pos[6];
+  grip2 = psm.jnt_pos[6];
+
+}
+
+
 void srvlib::davinci::buildKinematicChainPSM1(DaVinciKinematicChain &mDaVinciChain, const PSMData& psm, glm::mat4 &roll, glm::mat4 &wrist_pitch, glm::mat4 &grip1, glm::mat4 &grip2){
 
   GLfloat A[16];
-  glhSetIdentity(A);
+  math::glhSetIdentity(A);
 
   extendChain(mDaVinciChain.mWorldOriginSUJ1Origin[0], A);
   extendChain(mDaVinciChain.mSUJ1OriginSUJ1Tip[0], A, psm.sj_joint_angles[0]);
@@ -473,9 +549,9 @@ void srvlib::davinci::buildKinematicChainPSM1(DaVinciKinematicChain &mDaVinciCha
   glm::mat4 grip1d = grip1;
   glm::mat4 grip2d = grip2;
 
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip1d));
   clasper_rotation = glm::rotate(-0.5f*clasper_angle, glm::vec3(0, 1, 0));
-  glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
+  math::glhMultMatrixRight(glm::value_ptr(clasper_rotation), glm::value_ptr(grip2d));
 
   grip1 = grip1d;
   grip2 = grip2d;

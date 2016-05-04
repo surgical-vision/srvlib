@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <srvlib/utils/config_reader.hpp>
 #include <srvlib/model/model.hpp>
 #include <srvlib/view/camera.hpp>
+#include <srvlib/model/pose.hpp>
 
 #ifdef USE_DA_VINCI
 #include <srvlib/model/davinci/davinci.hpp>
@@ -37,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifdef USE_ROS
 #include <sensor_msgs/JointState.h>
 #elif defined USE_ISI_API
+#include <isi_api.h>
 #endif
 
 namespace srvlib {
@@ -77,7 +79,7 @@ namespace srvlib {
     */
     virtual ~BasePoseGrabber() {};  
 
-    virtual std::shared_ptr<BaseModel> GetModel() = 0;
+    virtual std::shared_ptr<Model> GetModel() = 0;
 
     /**
     * Writes the current estimate of pose to a string.
@@ -150,7 +152,7 @@ namespace srvlib {
     */
     PoseGrabber(const ConfigReader &reader, const std::string &output_dir);
 
-    virtual std::shared_ptr<BaseModel> GetModel() { return model_; }
+    virtual std::shared_ptr<Model> GetModel() { return model_; }
 
     /**
     * Load the next SE3 pose transform from the file. This changes the class' internal representation of its pose when it renders the model.
@@ -203,13 +205,16 @@ namespace srvlib {
 
   public:
 
+    enum InstrumentType { LND, NO_INST};
+
+    BaseDaVinciPoseGrabber(const InstrumentType instrument_type, davinci::DaVinciJoint target_joint, const std::string &output_dir, const LoadSource source);
     /**
     * Construct a base class da vinci pose grabber. This really just loads the model.
     * @param[in] reader The configuration file.
     */
-    BaseDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir);
+    BaseDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir);
 
-    virtual std::shared_ptr<BaseModel> GetModel() { return model_; }
+    virtual std::shared_ptr<Model> GetModel() { return model_; }
 
 
     /**
@@ -229,15 +234,10 @@ namespace srvlib {
 
     virtual void SetupOffsets(const std::string &base_offsets, const std::string &arm_offsets) = 0;
 
-
-    /**
-    * Possibly not needed?
-    */
-    void convertFromDaVinciPose(const glm::mat4 &in_pose, glm::mat4 &out_pose);
-
     davinci::DaVinciKinematicChain chain_; /**< */
     davinci::DaVinciJoint target_joint_; /**< */
     std::shared_ptr<davinci::DaVinciInstrument> model_; /**< */
+    LoadSource source_;
 
   };
 
@@ -252,12 +252,14 @@ namespace srvlib {
 
   public:
 
-
+    DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const std::string &output_dir, LoadSource source);
+    DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const InstrumentType instrument_type, const std::string &output_dir, LoadSource source);
+    
     /**
     * Construct a DH parameter da Vinci manipulator from a configuration file.
     * @param[in] reader A ConfigReader instance which has been initialized from a config file.
     */
-    DHDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir);
+    DHDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir);
 
     /**
     * Load a set of DH parameters from a file and set up the manipulator transforms using the DH chain.
@@ -267,9 +269,9 @@ namespace srvlib {
     virtual bool LoadPose(const bool update_as_new);
 
 #ifdef USE_ROS
-    bool LoadFromROS(const sensor_msgs::JointState::ConstPtr& msg);
+    bool LoadFromROS(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints);
 #elif defined USE_ISI_API
-    bool LoadFromISI(void);
+    bool LoadFromISI(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints);
 #endif
 
     /**
@@ -296,7 +298,7 @@ namespace srvlib {
     */
     std::vector<double> &getBaseOffsets() { return base_offsets_; }
 
-    virtual ~DHDaVinciPoseGrabber() { if (base_ifs_.is_open()) base_ifs_.close(); if (arm_ifs_.is_open()) arm_ifs_.close(); if (base_ofs_.is_open()) base_ofs_.close(); if (arm_ofs_.is_open()) arm_ofs_.close(); if (se3_ofs_.is_open()) se3_ofs_.close(); }
+    virtual ~DHDaVinciPoseGrabber();
 
     void DrawBody();
     void DrawHead();
@@ -362,7 +364,7 @@ namespace srvlib {
     * @param[in] reader The configuration file reader containing the data about the instrument.
     * @param[in] output_dir The output directory where this session is storing files.
     */
-    SE3DaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir, bool check_type = true);
+    SE3DaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir, bool check_type = true);
 
     virtual void WritePoseToStream();
 
@@ -462,7 +464,7 @@ namespace srvlib {
     /**
     * Load a pose grabber from a config file. This file contains the model coordinate file (if applicable) and pose file.
     */
-    QuaternionDaVinciPoseGrabber(const ConfigReader &reader, const std::string &output_dir);
+    QuaternionDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir);
 
     /**
     * Load the next SE3 pose transform from the file. This changes the class' internal representation of its pose when it renders the model.

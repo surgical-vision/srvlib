@@ -44,6 +44,14 @@ PlayoutDevice::~PlayoutDevice(){
     
 }
 
+void PlayoutDevice::SetOffsetToStream(const size_t offset){
+
+  HRESULT result = configuration_->SetInt(bmdDeckLinkConfigReferenceInputTimingOffset, (int64_t)offset);
+  if (result != S_OK) return;
+  else ci::app::console() << "ERROR" << std::endl;
+ 
+}
+
 
 
 bool PlayoutDevice::GetStreamFromDevice(){
@@ -78,6 +86,11 @@ bool PlayoutDevice::GetStreamFromDevice(){
   }else{
 
     result = device->QueryInterface(IID_IDeckLinkOutput, (void**)&output_);
+
+    if (result != S_OK)
+      return false;
+
+    result = device->QueryInterface(IID_IDeckLinkConfiguration, (void**)&configuration_);
 
     if (result != S_OK)
       return false;

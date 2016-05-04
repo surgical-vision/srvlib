@@ -10,7 +10,7 @@
 #include <tchar.h>
 #include <objbase.h>
 #include <comutil.h>
-#include <srvlib/io/video/sdi/DeckLinkAPI_h.h>
+#include <srvlib/io/video/sdi/DeckLinkAPI.h>
 #endif
 
 #include <deque>
@@ -43,6 +43,8 @@ namespace srvlib {
 
       IDeckLinkMutableVideoFrame *GetFrame() { return frame_; }
 
+      void SetOffsetToStream(const size_t offset);
+
     protected:
 
       bool EnableVideoAndStartDisplay(BMDConfig *config, const BMDDisplayMode target_display_mode);
@@ -54,6 +56,8 @@ namespace srvlib {
       BMDConfig config_;
 
       IDeckLinkOutput *output_;
+      IDeckLinkConfiguration  *configuration_;
+
       const size_t device_index_;
 
       size_t frame_width_;

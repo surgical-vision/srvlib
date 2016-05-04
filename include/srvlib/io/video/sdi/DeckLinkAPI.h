@@ -4,10 +4,10 @@
 
 
  /* File created by MIDL compiler version 8.00.0603 */
-/* at Thu Feb 18 14:16:00 2016
+/* at Fri Apr 29 14:32:20 2016
  */
 /* Compiler settings for ..\..\..\..\..\sdks\Blackmagic_DeckLink_SDK_10.5\Win\include\DeckLinkAPI.idl:
-    Oicf, W1, Zp8, env=Win32 (32b run), target_arch=X86 8.00.0603 
+    Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0603 
     protocol : dce , ms_ext, c_ext, robust
     error checks: allocation ref bounds_check enum stub_data 
     VC __declspec() decoration level: 
@@ -32,8 +32,8 @@
 #endif // __RPCNDR_H_VERSION__
 
 
-#ifndef __DeckLinkAPI_h_h__
-#define __DeckLinkAPI_h_h__
+#ifndef __DeckLinkAPI_h__
+#define __DeckLinkAPI_h__
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once

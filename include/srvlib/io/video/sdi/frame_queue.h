@@ -10,7 +10,7 @@
 #include <tchar.h>
 #include <objbase.h>
 #include <comutil.h>
-#include <srvlib/io/video/sdi/DeckLinkAPI_h.h>
+#include <srvlib/io/video/sdi/DeckLinkAPI.h>
 #endif
 #include <cinder/gl/Texture.h>
 
