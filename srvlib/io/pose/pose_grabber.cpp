@@ -257,6 +257,8 @@ void PoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
 
 BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : BasePoseGrabber(output_dir) {
   
+  load_source_ = LoadSource::FILE;
+
   try{
     model_.reset(new davinci::DaVinciInstrument());
     if (instrument_type == LND)
