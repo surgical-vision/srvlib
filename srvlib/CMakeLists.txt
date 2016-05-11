@@ -51,18 +51,23 @@ if(_LINUX_)
 
 else(_WIN_)
   
-  if( NOT CMAKE_SIZEOF_VOID_P EQUAL 8 ) #ISI api only supported 32 bit
+  if( CMAKE_SIZEOF_VOID_P EQUAL 8 ) #ISI api only supported 64 bit
    
     option(BUILD_ISI "Build ISI API support for Da Vinci" ON)
     if(BUILD_ISI)
    
       add_definitions(-DUSE_ISI_API)
-      include_directories("C:/Program Files (x86)/ISI API 1.0/include/")
-      list(APPEND LINK_LIBS "C:/Program Files (x86)/ISI API 1.0/lib/isi_api.lib" )
-
+      #include_directories("C:/Program Files (x86)/ISI API 1.0/include/")
+      #list(APPEND LINK_LIBS "C:/Program Files (x86)/ISI API 1.0/lib/isi_api.lib" )
+      find_package(isi_api REQUIRED)
+      if(isi_api_FOUND)
+        include_directories("${isi_api_INCLUDE_DIR}")
+        list(APPEND LINK_LIBS "${isi_api_LIBRARIES}")
+      endif()
+    
     endif() 
   
-  endif( NOT CMAKE_SIZEOF_VOID_P EQUAL 8 )
+  endif( CMAKE_SIZEOF_VOID_P EQUAL 8 )
 
 # include intutiive api stuff
 
