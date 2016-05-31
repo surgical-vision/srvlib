@@ -59,16 +59,16 @@ namespace srvlib {
       void UpdatePose(const glm::vec3 &euler_update, const std::string &euler_order, const bool use_intrinsic_eulers, const glm::vec3 &translation_update, const glm::vec3 &articulation_update);
       void EditPose(const glm::vec3 &euler_rotation, const std::string &euler_order, const bool use_intrinsic_eulers, const glm::vec3 &translation, const glm::vec3 &articulation);
 
-      DHNode::Ptr DaVinciInstrument::Shaft(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(0)); }
-      DHNode::Ptr DaVinciInstrument::Head(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(1)); }
-      DHNode::Ptr DaVinciInstrument::ClasperBase(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(2)); }
-      DHNode::Ptr DaVinciInstrument::Clasper1(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(4)); }
-      DHNode::Ptr DaVinciInstrument::Clasper2(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(5)); }
-      DHNode::ConstPtr DaVinciInstrument::Shaft() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(0)); }
-      DHNode::ConstPtr DaVinciInstrument::Head() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(1)); }
-      DHNode::ConstPtr DaVinciInstrument::ClasperBase() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(2)); }
-      DHNode::ConstPtr DaVinciInstrument::Clasper1() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(4)); }
-      DHNode::ConstPtr DaVinciInstrument::Clasper2() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(5)); }
+      DHNode::Ptr Shaft(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(0)); }
+      DHNode::Ptr Head(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(1)); }
+      DHNode::Ptr ClasperBase(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(2)); }
+      DHNode::Ptr Clasper1(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(4)); }
+      DHNode::Ptr Clasper2(){ return boost::dynamic_pointer_cast<DHNode>(internal_model_->GetChildByIdx(5)); }
+      DHNode::ConstPtr Shaft() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(0)); }
+      DHNode::ConstPtr Head() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(1)); }
+      DHNode::ConstPtr ClasperBase() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(2)); }
+      DHNode::ConstPtr Clasper1() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(4)); }
+      DHNode::ConstPtr Clasper2() const { return boost::dynamic_pointer_cast<const DHNode>(internal_model_->GetChildByIdx(5)); }
 
       Pose GetShaftPose() const { return Shaft()->GetWorldTransform(base_pose_); }
       Pose GetHeadPose() const { return Head()->GetWorldTransform(base_pose_); }

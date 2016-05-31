@@ -1,4 +1,5 @@
 #include <srvlib/utils/math.hpp>
+#include <stdexcept>
 
 
 glm::vec3 srvlib::math::GetZYXEulersFromQuaternion(const glm::quat &quaternion) {

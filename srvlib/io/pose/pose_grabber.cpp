@@ -90,7 +90,12 @@ void SE3DaVinciPoseGrabber::GetSubWindowCoordinates(const srvlib::Camera &camera
   glm::normalize(local_vertical_axis);
   glm::vec2 local_horizontal_axis = glm::vec2(local_vertical_axis[1], -local_vertical_axis[0]);
 
+#ifdef _WIN32
   float distance = std::sqrtf((center_of_mass.x - angle_of_shaft.x)*(center_of_mass.x - angle_of_shaft.x) + (center_of_mass.y - angle_of_shaft.y)*(center_of_mass.y - angle_of_shaft.y));
+#else
+  float distance = std::sqrt((float)((center_of_mass.x - angle_of_shaft.x)*(center_of_mass.x - angle_of_shaft.x) + (center_of_mass.y - angle_of_shaft.y)*(center_of_mass.y - angle_of_shaft.y)));
+#endif
+
 
   glm::vec2 top_left = center_of_mass + (2.4f * distance * local_vertical_axis) + (2 * distance * local_horizontal_axis);
   glm::vec2 top_right = center_of_mass + (2.4f * distance * local_vertical_axis) - (2 * distance * local_horizontal_axis);
@@ -468,9 +473,15 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
       psm.sj_joint_angles[i] = base_joints_[i] + base_offsets_[i];
     }
 
+    #ifdef USE_ROS
+    lock_.lock();
+    #endif
     for (std::size_t i = 0; i < arm_joints_.size(); ++i){
       psm.jnt_pos[i] = arm_joints_[i] + arm_offsets_[i];
     }
+    #ifdef USE_ROS
+    lock_.unlock();
+    #endif
 
     glm::mat4 base_pose;
     glm::vec4 articulation;
@@ -494,25 +505,14 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
 bool DHDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
   if (update_as_new){
-    if (load_source_ == FILE){
+    if(load_source_ == FILE){
       if (!ReadDHFromFiles(base_joints_, arm_joints_))
-        return false;
-    }
-    else if (load_source_ == ISI){
+	return false;
+    }else if(load_source_ == ISI){
 #ifdef USE_ISI_API
-      if (!LoadFromISI(base_joints_, arm_joints_))
-        return false;
-
+      LoadFromISI();
 #else
-      throw std::runtime_error("Error, ISI API support not added!");
-#endif
-    }
-    else if (load_source_ == ROS){
-#ifdef USE_ROS
-      if (!LoadFromROS(base_joints_, arm_joints_))
-        return false;
-#else
-      throw std::runtime_error("Error, ROS support not added!");
+      throw std::runtime_error("Error, ISI API is not supported!\n");
 #endif
     }
   }
@@ -532,11 +532,27 @@ bool DHDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
 }
 
-#ifdef USE_ISI_API
-bool DHDaVinciPoseGrabber::LoadFromISI(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints){
 
-  assert(num_arm_joints_ == psm_arm_joints.size());
-  assert(num_base_joints_ == psm_base_joints.size());
+#ifdef USE_ROS
+bool DHDaVinciPoseGrabber::SetPose(const sensor_msgs::JointState::ConstPtr& msg){
+
+  lock_.lock();
+
+  for(size_t i = 0; i < num_arm_joints_; ++i){
+
+    arm_joints_[i] = msg->position[i];
+
+  }
+
+  lock_.unlock();
+
+  return true;
+
+}
+#endif
+
+#ifdef USE_ISI_API
+bool DHDaVinciPoseGrabber::LoadFromISI(){
 
   try{
 
@@ -561,13 +577,13 @@ bool DHDaVinciPoseGrabber::LoadFromISI(std::vector<double> &psm_base_joints, std
 
     isi_get_stream_field(mid, ISI_JOINT_VALUES, &stream_data);
     for (int i = 0; i != stream_data.count; i++){
-      psm_arm_joints[i] = stream_data.data[i];
+      arm_joints_[i] = stream_data.data[i];
     }
     
 
     isi_get_stream_field(mid, ISI_SUJ_JOINT_VALUES, &stream_data);
     for (int i = 0; i != stream_data.count; i++){
-      psm_base_joints[i] = stream_data.data[i];
+      base_joints_[i] = stream_data.data[i];
     }
 
   }

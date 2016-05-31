@@ -67,7 +67,7 @@ std::vector< Node::Ptr > Node::GetAllChildren() {
 
   std::vector<Node::Ptr> all_children = children_;
   for (auto &child : children_){
-    auto &cc = child->GetAllChildren();
+    auto cc = child->GetAllChildren();
     all_children.insert(all_children.end(), cc.begin(), cc.end());
   }
   return all_children;
@@ -79,7 +79,7 @@ std::vector< Node::ConstPtr > Node::GetAllChildren() const{
   std::vector<Node::ConstPtr> all_children;
   for (auto &child : children_){
     all_children.push_back(child);
-    auto &cc = child->GetAllChildren();
+    auto cc = child->GetAllChildren();
     all_children.insert(all_children.end(), cc.begin(), cc.end());
   }
   return all_children;

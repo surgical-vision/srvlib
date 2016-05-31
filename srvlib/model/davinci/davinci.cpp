@@ -49,7 +49,8 @@ void DaVinciInstrument::UpdatePose(const glm::vec4 &quaternion_update, const glm
 
 void DaVinciInstrument::EditPose(const glm::quat &rotation, const glm::vec3 &translation, const glm::vec3 &articulation){
 
-  base_pose_.SetPose(std::vector<float>({ translation[0], translation[1], translation[2], rotation.w, rotation.x, rotation.y, rotation.z }));
+  std::vector<float> nt({ translation[0], translation[1], translation[2], rotation.w, rotation.x, rotation.y, rotation.z });
+  base_pose_.SetPose(nt);
 
   Head()->SetUpdateThisNode(articulation[0]);
   ClasperBase()->SetUpdateThisNode(articulation[1]);

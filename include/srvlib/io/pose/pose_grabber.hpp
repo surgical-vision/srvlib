@@ -37,8 +37,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef USE_ROS
 #include <sensor_msgs/JointState.h>
+#include <mutex>
 #elif defined USE_ISI_API
 #include <isi_api.h>
+#include <mutex>
 #endif
 
 namespace srvlib {
@@ -269,9 +271,9 @@ namespace srvlib {
     virtual bool LoadPose(const bool update_as_new);
 
 #ifdef USE_ROS
-    bool LoadFromROS(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints);
+    bool SetPose(const sensor_msgs::JointState::ConstPtr& msg);
 #elif defined USE_ISI_API
-    bool LoadFromISI(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints);
+    bool LoadFromISI();
 #endif
 
     /**
@@ -309,6 +311,10 @@ namespace srvlib {
 
 
   protected:
+
+#ifdef USE_ROS
+    std::mutex lock_;
+#endif
 
     /**
     * Read the DH values from the files and store them in the vectors.

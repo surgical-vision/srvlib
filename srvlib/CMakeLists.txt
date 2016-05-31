@@ -36,7 +36,7 @@ if(BUILD_DA_VINCI)
 endif()
 
 if(_LINUX_)
-  set (CMAKE_CXX_FLAGS "-std=c++11")
+  set (CMAKE_CXX_FLAGS "-std=c++11 -fpermissive")
 endif()
 
 if(_LINUX_)
@@ -79,9 +79,15 @@ if(BUILD_SDI_IO)
   
   #hack for now
   if (_LINUX_)
-    list(APPEND LIB_INC_DIR "/home/davinci/sdks/BlackMagic/Blackmagic_Decklink_SDK_10.3.1/Linux/include")
-    list(APPEND LIB_INC_DIR "/home/davinci/sdks/LeapSDK_2.2.2/LeapSDK/include/")
-    list(APPEND LINK_LIBS "/home/davinci/sdks/LeapSDK_2.2.2/LeapSDK/lib/x64/libLeap.so")
+    
+    find_path(BLACKMAGIC_INCLUDE_DIR NAMES DeckLinkAPI.h)
+    if(BLACKMAGIC_INCLUDE_DIR)
+      list(APPEND USER_INC "${BLACKMAGIC_INCLUDE_DIR}")
+    endif()
+
+    #list(APPEND LIB_INC_DIR "/home/davinci/sdks/BlackMagic/Blackmagic_Decklink_SDK_10.3.1/Linux/include")
+    #list(APPEND LIB_INC_DIR "/home/davinci/sdks/LeapSDK_2.2.2/LeapSDK/include/")
+    #list(APPEND LINK_LIBS "/home/davinci/sdks/LeapSDK_2.2.2/LeapSDK/lib/x64/libLeap.so")
     find_package(roscpp REQUIRED)
     include_directories(${roscpp_INCLUDE_DIRS})
 
