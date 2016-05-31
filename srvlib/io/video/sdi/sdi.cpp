@@ -136,8 +136,11 @@ void SDICameraIO::Display(std::shared_ptr<VideoFrame> frame){
 
   ci::gl::clear(ci::Color(0.0, 0.5, 0.1), true);
 
-  DrawOnWindow(frame, fbo_->getBounds(), false);
-
+  //DrawOnWindow(frame, fbo_->getBounds(), false);
+  //renderer::DrawTexture(frame->gpu_frame, glm::ivec2(frame->GetWidth(), frame->GetHeight()), glm::ivec2(fbo_->getBounds().getWidth(), fbo_->getBounds().getHeight()), ci::gl::GlslProgRef());
+  frame->gpu_frame->bind();
+  ci::gl::drawSolidRect(ci::Rectf(0, 0, 720, 576), glm::vec2(0, 0), glm::vec2(1, 1));
+  frame->gpu_frame->unbind();
   //if (rendering_){
   //  draw_psm_on_window(psm1, is_left);
   //  draw_psm_on_window(psm2, is_left);

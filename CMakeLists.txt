@@ -10,6 +10,10 @@ include(SetPlatformVars)
 
 cmake_minimum_required(VERSION 2.7)
 
+#needed for cinder
+add_definitions(-D_UNICODE)
+add_definitions(-DUNICODE)
+
 # Overide with cmake -DCMAKE_BUILD_TYPE=Debug
 if(NOT CMAKE_BUILD_TYPE)
    message("Build type not set (defaults to release)")

@@ -50,17 +50,17 @@ void srvlib::renderer::DrawModel(ci::gl::VboMeshRef model, const glm::mat4 &mode
 }
 
 void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, const glm::ivec2 &eye_size, const glm::ivec2 &draw_size, ci::gl::GlslProgRef shader){
-  
+
   ci::gl::disableDepthRead();
   ci::gl::disableDepthWrite();
 
   ci::gl::pushMatrices();
-  
+
   auto vp = ci::gl::getViewport();
 
   ci::CameraOrtho o;
   o.setOrtho(0.0f, (float)eye_size[0], 0.0f, (float)eye_size[1], (float)0, (float)1);
-  
+
   ci::gl::setProjectionMatrix(o.getProjectionMatrix());
 
   ci::gl::setModelMatrix(glm::mat4());
@@ -68,8 +68,10 @@ void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, const glm::ivec2 
 
   image->bind();
 
-  shader->bind();
-  shader->uniform("tex0", 0);
+  if (shader){
+    shader->bind();
+    shader->uniform("tex0", 0);
+  }
 
   ci::Rectf bounds(0, 0, draw_size[0], draw_size[1]);
   ci::gl::viewport(draw_size);

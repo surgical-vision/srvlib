@@ -113,7 +113,7 @@ set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)  
 set(Boost_USE_STATIC_RUNTIME OFF)
 #set(Boost_BOOST_ALL_DYN_LINK)
-find_package(Boost REQUIRED COMPONENTS regex chrono date_time system filesystem thread python)
+find_package(Boost REQUIRED COMPONENTS system filesystem thread)
 if(Boost_FOUND)
     ADD_DEFINITIONS("-DBOOST_ALL_NO_LIB")
     list(APPEND USER_INC "${Boost_INCLUDE_DIRS}")
@@ -122,10 +122,21 @@ endif()
 
 #Opencv
 find_package(OpenCV REQUIRED)
-if(OpenCV_FOUND)
+if(OPENCV2_FOUND)
   message("Found OpenCV")
-  list(APPEND USER_INC "${OpenCV_INCLUDE_DIRS}" )
-  list(APPEND LINK_LIBS "${OpenCV_LIBRARIES}" )
+  list(APPEND USER_INC "${OPENCV2_INCLUDE_PATH}" )
+  list(APPEND USER_LIB "${OPENCV2_LIB_PATH}")
+  if(WIN32)
+    foreach(x ${OPENCV2_RELEASE_LIBS})
+      list (APPEND RELEASE_LINK_LIBS optimized ${x})
+    endforeach()
+    foreach(x ${OPENCV2_DEBUG_LIBS})
+      list (APPEND DEBUG_LINK_LIBS debug ${x})
+    endforeach()
+  else(WIN32)
+  #needs fixing possibly!
+    list(APPEND LINK_LIBS "${OPENCV2_LIBRARIES}" )
+  endif()
 endif()
 
 #Cinder
@@ -146,7 +157,7 @@ link_directories( ${USER_LIB} )
 
 add_library(${LIBRARY_NAME} ${SOURCES} ${HEADERS} )
 
-target_link_libraries(${LIBRARY_NAME} ${LINK_LIBS})
+target_link_libraries(${LIBRARY_NAME} ${LINK_LIBS} ${RELEASE_LINK_LIBS} ${DEBUG_LINK_LIBS} )
 
 
 

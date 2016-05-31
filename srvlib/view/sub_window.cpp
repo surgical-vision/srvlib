@@ -41,6 +41,7 @@ SubWindow *SubWindow::Init(const std::string &name, int start_x, int start_y, in
   file_count_ = 0;
 
   window_coords_ = ci::Rectf((float)start_x, (float)start_y, (float)start_x + (float)draw_width, (float)start_y + (float)draw_height);
+
   framebuffer_ = ci::gl::Fbo::create(eye_width, eye_height);
   //framebuffer_->getColorTexture()->setTopDown(true);
 
