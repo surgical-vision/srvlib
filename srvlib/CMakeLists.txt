@@ -65,6 +65,7 @@ else(_WIN_)
       if(isi_api_FOUND)
         include_directories("${isi_api_INCLUDE_DIR}")
         list(APPEND LINK_LIBS "${isi_api_LIBRARIES}")
+        message("${isi_api_LIBRARIES}")
       endif()
     
     endif() 
@@ -157,7 +158,11 @@ link_directories( ${USER_LIB} )
 
 add_library(${LIBRARY_NAME} ${SOURCES} ${HEADERS} )
 
-target_link_libraries(${LIBRARY_NAME} ${LINK_LIBS} ${RELEASE_LINK_LIBS} ${DEBUG_LINK_LIBS} )
+if(_WIN_)
+list(APPEND LINK_LIBS glu32)
+endif(_WIN_)
+
+target_link_libraries(${LIBRARY_NAME} ${LINK_LIBS} ${RELEASE_LINK_LIBS} ${DEBUG_LINK_LIBS})
 
 
 

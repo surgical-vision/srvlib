@@ -53,7 +53,7 @@ Pose Model::GetPose() const {
 
 }
 
-void Model::InternalDraw(Node::ConstPtr rd, const float inc) const {
+void Model::InternalDraw(Node::Ptr rd, const float inc) {
 
   ci::gl::pushModelView();
   
@@ -80,17 +80,21 @@ void Model::LoadComponent(const ci::JsonTree &tree, Node::Ptr target, const std:
   if (!boost::filesystem::exists(tex_file)) throw(std::runtime_error("Error, the file doens't exist!\n"));
   
   if (has_texture = boost::filesystem::exists(tex_file)){
-    ci::gl::Texture::Format format;
-    target->GetTexture() = ci::gl::Texture::create(ci::loadImage((tex_file.string())), format);
+    //ci::gl::Texture::Format format;
+    //target->GetTexture() = ci::gl::Texture::create(ci::loadImage((tex_file.string())), format);
+    target->LoadComponent(obj_file.string(), mat_file.string(), tex_file.string());
+  }
+  else{
+    target->LoadComponent(obj_file.string(), mat_file.string());
   }
 
-  ci::ObjLoader loader(ci::loadFile(obj_file.string()), ci::loadFile(mat_file.string()), true, true, true);
-  target->GetMesh() = ci::gl::VboMesh::create(loader);
+  //ci::ObjLoader loader(ci::loadFile(obj_file.string()), ci::loadFile(mat_file.string()), true, true, true);
+  //target->GetMesh() = ci::gl::VboMesh::create(loader);
 
 
 }
 
-void Model::Draw() const {
+void Model::Draw() {
 
   InternalDraw(internal_model_);
 

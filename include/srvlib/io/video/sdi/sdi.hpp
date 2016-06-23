@@ -36,6 +36,8 @@ namespace srvlib {
 
       void Display(std::shared_ptr<VideoFrame> frame);
 
+      void Display();
+
       /**
       * Read the next when we have a packed (side-by-side) stereo frame. Returns an empty matrix if not enabled or a black frame if there's nothing else to read.
       * @param[out] The left part of the frame we read.

@@ -21,12 +21,14 @@ namespace srvlib {
     template<typename T>
     struct ThreadSafeQueue {
 
-      ThreadSafeQueue(){ }
+      ThreadSafeQueue(){ no_queue = nullptr; }
 
       void push(T v);
       T pop();
+      size_t length();
 
       std::queue<T> queue;
+      T no_queue;
       std::mutex m_lock;
     };
 
@@ -34,7 +36,8 @@ namespace srvlib {
     void ThreadSafeQueue<T>::push(T v){
 
       if (!m_lock.try_lock()) return;
-      queue.push(v);
+      no_queue = v;
+      //queue.push(v);
       m_lock.unlock();
 
     }
@@ -46,16 +49,28 @@ namespace srvlib {
 
       if (!m_lock.try_lock()) return r;
 
-      if (!queue.empty()){
-        r = queue.front();
-        queue.pop();
+      if (no_queue != nullptr){
+        r = no_queue;
+        no_queue = nullptr;
       }
+
+      //if (!queue.empty()){
+      //  r = queue.front();
+      //  queue.pop();
+      //}
 
       m_lock.unlock();
 
       return r;
 
+    }
 
+    template<typename T>
+    size_t ThreadSafeQueue<T>::length() {
+      while (!m_lock.try_lock()) {}
+      size_t r = queue.size();
+      m_lock.unlock();
+      return r;
     }
 
     typedef ThreadSafeQueue<IDeckLinkVideoInputFrame *> FrameQueue;

@@ -31,6 +31,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <srvlib/view/camera.hpp>
 #include <srvlib/model/pose.hpp>
 
+#ifdef USE_ISI_API
+#ifdef _DEBUG
+#undef USE_ISI_API
+#endif
+#endif
+
 #ifdef USE_DA_VINCI
 #include <srvlib/model/davinci/davinci.hpp>
 #endif
@@ -70,6 +76,8 @@ namespace srvlib {
     */
     virtual bool LoadPose(const bool no_reload) = 0;
     
+    bool HasLoadedPose() const { return has_loaded_pose_; }
+
     /**
     * Return the current pose estimate.
     * @return Return the current pose estimate.
@@ -121,6 +129,8 @@ namespace srvlib {
     * 
     */
     void convertFromBouguetPose(const glm::mat4 &in_pose, glm::mat4 &out_pose);
+
+    bool has_loaded_pose_;
 
     bool do_draw_; /**< Flag set to false when there are no pose value left to draw the object. */
 
@@ -273,6 +283,7 @@ namespace srvlib {
 #ifdef USE_ROS
     bool SetPose(const sensor_msgs::JointState::ConstPtr& msg);
 #elif defined USE_ISI_API
+    static bool IsConnectedToISI;
     bool LoadFromISI();
 #endif
 

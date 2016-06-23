@@ -41,12 +41,12 @@ namespace srvlib {
 
       static std::string GetLargeNeedleDriver(){ return cinder::app::getAssetPath("large_needle_driver").string(); }
 
-      virtual void Draw() const;
+      virtual void Draw();
 
-      void DrawBody() const;
-      void DrawLeftClasper() const;
-      void DrawRightClasper() const;
-      void DrawHead() const;
+      void DrawBody();
+      void DrawLeftClasper();
+      void DrawRightClasper();
+      void DrawHead();
 
       virtual void LoadData(const std::string &datafile_path);
 

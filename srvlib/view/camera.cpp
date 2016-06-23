@@ -105,16 +105,18 @@ void StereoCamera::Setup(const std::string &calibration_filename, const int near
     size_t image_width = image_size.at<int>(0);
     size_t image_height = image_size.at<int>(1);
 
-    convertBouguetToGLCoordinates(l_intrinsic, r_intrinsic, rotation, translation, image_width, image_height);
+    //convertBouguetToGLCoordinates(l_intrinsic, r_intrinsic, rotation, translation, image_width, image_height);
 
     left_eye_.Setup(l_intrinsic, l_distortion, image_width, image_height, near_clip_distance, far_clip_distance);
     right_eye_.Setup(r_intrinsic, r_distortion, image_width, image_height, near_clip_distance, far_clip_distance);
+
+    rotation = rotation.inv();
 
     for (int r = 0; r<rotation.rows; r++){
       for (int c = 0; c<rotation.cols; c++){
         extrinsic_rotation_[c][r] = (float)rotation.at<double>(r, c);
       }
-      extrinsic_translation_[r] = (float)translation.at<double>(r, 0);
+      extrinsic_translation_[r] = -(float)translation.at<double>(r, 0);
     }
 
   }

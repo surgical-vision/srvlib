@@ -45,7 +45,7 @@ namespace srvlib {
     /**
     * Draw the model at the current estimate of pose. Assumes that an OpenGL context is available for the active thread.
     */
-    virtual void Draw() const;
+    virtual void Draw();
 
     /**
     * Load the data for the model from a config file.
@@ -66,7 +66,7 @@ namespace srvlib {
     * Draw a single RenderData model
     * @param[in] rd The model to draw.
     */
-    void InternalDraw(Node::ConstPtr rd, const float inc = 0) const;
+    void InternalDraw(Node::Ptr rd, const float inc = 0);
 
     ci::JsonTree OpenFile(const std::string &datafile_path) const;
     

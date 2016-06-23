@@ -71,7 +71,7 @@ void DaVinciInstrument::EditPose(const glm::vec3 &euler_rotation, const std::str
 }
 
 
-void DaVinciInstrument::Draw() const {
+void DaVinciInstrument::Draw() {
 
   InternalDraw(Shaft());
   InternalDraw(Head());
@@ -112,26 +112,26 @@ void DaVinciInstrument::SetTransformSet(const std::vector<glm::mat4> &transforms
 
 }
 
-void DaVinciInstrument::DrawBody() const{
+void DaVinciInstrument::DrawBody() {
 
   InternalDraw(Shaft());
 
 }
 
-void DaVinciInstrument::DrawLeftClasper() const{
+void DaVinciInstrument::DrawLeftClasper() {
 
   InternalDraw(Clasper1());
 
 }
 
 
-void DaVinciInstrument::DrawRightClasper() const{
+void DaVinciInstrument::DrawRightClasper() {
 
   InternalDraw(Clasper2());
 
 }
 
-void DaVinciInstrument::DrawHead() const{
+void DaVinciInstrument::DrawHead() {
 
   InternalDraw(Head());
 

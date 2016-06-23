@@ -223,11 +223,14 @@ namespace srvlib {
     * Accessor for the node's texture.
     * @return The texture.
     */
-    ci::gl::TextureRef GetTexture() { return texture_; }
-    const ci::gl::TextureRef GetTexture() const { return texture_; }
+    ci::gl::TextureRef GetTexture() { if (cpu_texture_ && !texture_) texture_ = ci::gl::Texture::create(cpu_texture_); return texture_; }
+    //const ci::gl::TextureRef GetTexture() const { return texture_; }
 
-    ci::gl::VboMeshRef GetMesh() { return mesh_; }
-    const ci::gl::VboMeshRef GetMesh() const { return mesh_; }
+    ci::gl::VboMeshRef GetMesh() { if (!mesh_) mesh_ = ci::gl::VboMesh::create(*loader_); return mesh_; }
+    //const ci::gl::VboMeshRef GetMesh() const { return mesh_; }
+    
+    void LoadComponent(const std::string &mesh_path, const std::string &material_path, const std::string &texture_path);
+    void LoadComponent(const std::string &mesh_path, const std::string &material_path);
 
   protected:
     
@@ -251,6 +254,9 @@ namespace srvlib {
     ci::gl::TextureRef texture_; /**< The texture for the model. */
 
     bool drawing_flag_; /**< Switch on to enable drawing of this component. */
+
+    std::shared_ptr<ci::ObjLoader> loader_; /**< Loader for the mesh. Moves into CPU memory. */
+    ci::ImageSourceRef cpu_texture_;
 
     size_t idx_; /**< Each node has an index for finding it in the tree. */
 

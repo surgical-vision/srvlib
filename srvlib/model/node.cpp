@@ -22,16 +22,31 @@ void Node::LoadMeshAndTexture(ci::JsonTree &tree, const std::string &root_dir){
   boost::filesystem::path texture_file = boost::filesystem::path(root_dir) / boost::filesystem::path(tree["tex-file"].getValue<std::string>());
   if (!boost::filesystem::exists(texture_file)) throw(std::runtime_error("Error, the file doesn't exist!\n"));
 
-  ci::ObjLoader loader(ci::loadFile(obj_file.string()), ci::loadFile(mat_file.string()), true, true, true);
-  mesh_ = ci::gl::VboMesh::create(loader);
+  LoadComponent(obj_file.string(), mat_file.string(), texture_file.string());
 
-  texture_ = ci::gl::Texture::create( ci::loadImage( texture_file.string()));
+}
+
+void Node::LoadComponent(const std::string &mesh_path, const std::string &material_path){
+
+  loader_.reset(new ci::ObjLoader(ci::loadFile(mesh_path), ci::loadFile(material_path), true, true, true));
+
+}
+
+void Node::LoadComponent(const std::string &mesh_path, const std::string &material_path, const std::string &texture_path){
+
+  LoadComponent(mesh_path, material_path);
+
+  //mesh_ = ci::gl::VboMesh::create(loader);
+  cpu_texture_ = ci::loadImage(texture_path);
 
 }
 
 
 void Node::RenderTexture(int id){
   
+  if (cpu_texture_ && !texture_) texture_ = ci::gl::Texture::create(cpu_texture_);
+  if (!mesh_) mesh_ = ci::gl::VboMesh::create(*loader_);
+
   if (drawing_flag_){
 
     ci::gl::pushModelView();

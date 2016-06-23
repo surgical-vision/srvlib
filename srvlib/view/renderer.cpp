@@ -72,10 +72,14 @@ void srvlib::renderer::DrawTexture(ci::gl::Texture2dRef image, const glm::ivec2 
     shader->bind();
     shader->uniform("tex0", 0);
   }
+  else{
+    auto default_shader = ci::gl::getStockShader(ci::gl::ShaderDef().color().lambert());
+    default_shader->bind();
+  }
 
   ci::Rectf bounds(0, 0, draw_size[0], draw_size[1]);
   ci::gl::viewport(draw_size);
-  ci::gl::drawSolidRect(bounds, glm::vec2(0, 0), glm::vec2(1, 1));
+  ci::gl::drawSolidRect(bounds);// , glm::vec2(0, 0), glm::vec2(1, 1));
   ci::gl::viewport(vp);
   
   image->unbind();

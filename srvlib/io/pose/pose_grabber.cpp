@@ -18,6 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **/
 
+#include <windows.h>
+#include <wchar.h>
+
 #include <cinder/app/App.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_interpolation.hpp>
@@ -27,6 +30,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <srvlib/utils/math.hpp>
 
 using namespace srvlib;
+
+#ifdef USE_ISI_API
+bool DHDaVinciPoseGrabber::IsConnectedToISI = false;
+#endif
+
 
 inline void clean_string(std::string &str, const std::vector<char> &to_remove){
   for (auto &ch : to_remove){
@@ -53,7 +61,7 @@ std::string BasePoseGrabber::WriteSE3ToString(const glm::mat4 &mat){
 
 }
 
-BasePoseGrabber::BasePoseGrabber(const std::string &output_dir) : do_draw_(false) , save_dir_(output_dir) {
+BasePoseGrabber::BasePoseGrabber(const std::string &output_dir) : do_draw_(false), save_dir_(output_dir), has_loaded_pose_(false) {
 
   std::stringstream ss;
   ss << "Pose grabber " << grabber_num_id_;
@@ -173,6 +181,7 @@ PoseGrabber::PoseGrabber(const ConfigReader &reader, const std::string &output_d
 
 bool PoseGrabber::LoadPose(const bool update_as_new){
 
+  has_loaded_pose_ = true;
   do_draw_ = false; //set to true only if we read a 'good' pose
 
   bool retval = false;
@@ -263,15 +272,17 @@ void PoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
 BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : BasePoseGrabber(output_dir) {
   
   load_source_ = LoadSource::FILE;
+  model_.reset(new davinci::DaVinciInstrument());
 
   try{
-    model_.reset(new davinci::DaVinciInstrument());
-    if (instrument_type == LND)
+    if (instrument_type == LND){
       model_->LoadData(davinci::DaVinciInstrument::GetLargeNeedleDriver());
-    else if (instrument_type == NO_INST)
-      return;
-    else
+    }
+    else if (instrument_type == NO_INST){
+    }
+    else{
       throw std::runtime_error("Error no other instruments supported yet!");
+    }
   }
   catch (std::runtime_error){
     //no model (e.g. tracking camera)
@@ -280,9 +291,10 @@ BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_t
 }
 
 BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, davinci::DaVinciJoint target_joint, const std::string &output_dir, const LoadSource source) : BasePoseGrabber(output_dir), target_joint_(target_joint), source_(source) {
-  
+
+  model_.reset(new davinci::DaVinciInstrument());
+
   if (target_joint_ == davinci::DaVinciJoint::PSM1 || target_joint_ == davinci::DaVinciJoint::PSM2 || target_joint_ == davinci::DaVinciJoint::PSM3){
-    model_.reset(new davinci::DaVinciInstrument());
     if (instrument_type == LND)
       model_->LoadData(davinci::DaVinciInstrument::GetLargeNeedleDriver());
     else
@@ -294,8 +306,9 @@ BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_t
 
 DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const std::string &output_dir, LoadSource source) : DHDaVinciPoseGrabber(joint, NO_INST, output_dir, source) {}
 
-
 DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const InstrumentType instrument_type, const std::string &output_dir, LoadSource source) : BaseDaVinciPoseGrabber(instrument_type, joint, output_dir, source) {
+
+  load_source_ = source;
 
   if (load_source_ == FILE){
     //
@@ -306,29 +319,72 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, c
   else if (load_source_ == ISI){
 #ifdef USE_ISI_API
 
-    const ISI_UINT password = strtol("1234567a", 0, 16);
-    ISI_STATUS status = isi_connect_ex("10.0.0.5", 5002, password);
-    if (status != ISI_SUCCESS)
-      throw(std::runtime_error("Error, could not connect to daVinci API!\n"));
-    
-    isi_subscribe_all_stream_fields();
-    isi_subscribe_all_events();
+    if (!DHDaVinciPoseGrabber::IsConnectedToISI){
 
-    ISI_UINT ISI_API_RATE = 50;
-    status = isi_start_stream(ISI_API_RATE);
-    if (status != ISI_SUCCESS){
-      isi_stop_stream();
-      isi_disconnect();
-      throw(std::runtime_error("Failed to start stream\n"));
+      const ISI_UINT password = strtol("1234567a", 0, 16);
+      const ISI_CHAR *ip_address = "10.0.0.5";
+      const ISI_INT port = 5002;
+
+      ISI_STATUS status = isi_connect_ex(ip_address, port, password);
+      //ISI_STATUS status = isi_connect();
+      if (status != ISI_SUCCESS){
+
+        throw(std::runtime_error("Error, could not connect to daVinci API!\n"));
+
+      }
+      else{
+        DHDaVinciPoseGrabber::IsConnectedToISI = true;
+      }
+
+
+      isi_subscribe_all_stream_fields();
+      isi_subscribe_all_events();
+
+      ISI_UINT ISI_API_RATE = 50;
+      status = isi_start_stream(ISI_API_RATE);
+      if (status != ISI_SUCCESS){
+        isi_stop_stream();
+        isi_disconnect();
+        throw(std::runtime_error("Failed to start stream\n"));
+      }
+    
     }
 #else
     throw std::runtime_error("ISI Api support not built!");
 #endif
   }
   else{
+    ci::app::console() << "Load source = " << source << "and ISI = " << ISI << std::endl;
     throw std::runtime_error("Unsupported load type");
   }
 
+  switch (target_joint_){
+
+  case davinci::DaVinciJoint::PSM1:
+    num_base_joints_ = chain_.mSUJ1OriginSUJ1Tip.size();
+    num_arm_joints_ = chain_.mPSM1OriginPSM1Tip.size();
+    break;
+  case davinci::DaVinciJoint::PSM2:
+    num_base_joints_ = chain_.mSUJ2OriginSUJ2Tip.size();
+    num_arm_joints_ = chain_.mPSM2OriginPSM2Tip.size();
+    break;
+  case davinci::DaVinciJoint::ECM:
+    num_base_joints_ = chain_.mSUJ3OriginSUJ3Tip.size();
+    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size(); 
+    break;
+  }
+
+  arm_offsets_ = std::vector<double>(num_arm_joints_, 0.0);
+  base_offsets_ = std::vector<double>(num_base_joints_, 0.0);
+  arm_joints_ = std::vector<double>(num_arm_joints_, 0.0);
+  base_joints_ = std::vector<double>(num_base_joints_, 0.0);
+
+  if (target_joint_ == davinci::DaVinciJoint::ECM)
+    SetupOffsets("0 0 0 0 0 0", "0 0 0 0");
+  else if (target_joint_ == davinci::DaVinciJoint::PSM1 || target_joint_ == davinci::DaVinciJoint::PSM2 || target_joint_ == davinci::DaVinciJoint::PSM3)
+    SetupOffsets("0 0 0 0 0 0", "0 0 0 0 0 0 0");
+
+  ci::app::console() << "LOADING DONE" << std::endl;
 
 }
 
@@ -448,15 +504,12 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
   if (target_joint_ == davinci::ECM){
 
     srvlib::davinci::ECMData ecm;
-
     for (std::size_t i = 0; i < base_joints_.size(); ++i){
       ecm.sj_joint_angles[i] = base_joints_[i] + base_offsets_[i];
     }
-
     for (std::size_t i = 0; i < arm_joints_.size(); ++i){
       ecm.jnt_pos[i] = arm_joints_[i] + arm_offsets_[i];
     }
-
     glm::mat4 base_pose;
     buildKinematicChainECM1(chain_, ecm, base_pose);
     model_->SetBasePose(base_pose);
@@ -504,10 +557,12 @@ glm::mat4 DHDaVinciPoseGrabber::GetPose(){
 
 bool DHDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
+  has_loaded_pose_ = true;
+
   if (update_as_new){
     if(load_source_ == FILE){
       if (!ReadDHFromFiles(base_joints_, arm_joints_))
-	return false;
+	      return false;
     }else if(load_source_ == ISI){
 #ifdef USE_ISI_API
       LoadFromISI();
@@ -558,16 +613,16 @@ bool DHDaVinciPoseGrabber::LoadFromISI(){
 
     ISI_MANIP_INDEX mid;
     if (target_joint_ == davinci::DaVinciJoint::PSM1){
-      mid == ISI_PSM1; 
+      mid = ISI_PSM1; 
     }
     else if (target_joint_ == davinci::DaVinciJoint::PSM2){
-      mid == ISI_PSM2;
+      mid = ISI_PSM2;
     }
     else if (target_joint_ == davinci::DaVinciJoint::PSM3){
-      mid == ISI_PSM3;
+      mid = ISI_PSM3;
     }
     else if(target_joint_ == davinci::DaVinciJoint::ECM){
-      mid == ISI_ECM;
+      mid = ISI_ECM;
     }
     else{
       throw std::runtime_error("Error, bad joint type!");
@@ -1145,6 +1200,8 @@ bool SE3DaVinciPoseGrabber::LoadPoseAsEulerAngles(){
 
 bool SE3DaVinciPoseGrabber::LoadPose(const bool update_as_new){
   
+  has_loaded_pose_ = true;
+
   do_draw_ = false; //set to true only if we read a 'good' pose
 
   assert(num_wrist_joints_ == wrist_dh_params_.size());
@@ -1326,6 +1383,8 @@ void DHDaVinciPoseGrabber::DrawHead(){
 }
 
 bool QuaternionDaVinciPoseGrabber::LoadPose(const bool update_as_new){
+
+  has_loaded_pose_ = true;
 
   do_draw_ = false; //set to true only if we read a 'good' pose
 

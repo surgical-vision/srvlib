@@ -1,6 +1,7 @@
 #include <srvlib/io/video/sdi/sdi.hpp>
 #include <cinder/gl/draw.h>
 #include <srvlib/view/renderer.hpp>
+#include <gl/glu.h>
 
 #include <cinder/CinderOpenCV.h>
 #include <cinder/app/App.h>
@@ -110,15 +111,32 @@ std::shared_ptr<VideoFrame> SDICameraIO::Read(){
   format.dataType(GL_UNSIGNED_INT_8_8_8_8_REV);
 
   f->gpu_frame = ci::gl::Texture2d::create(video_pixels, GL_BGRA, width / 2, height, format);
+
   f->is_valid = true;
 
-  //cv::Mat f = toOcv(texture->createSource());
-
   video_frame->Release();
+
   return f;
 
 }
 
+void SDICameraIO::Display(){
+
+
+  IDeckLinkMutableVideoFrame *output_frame = playout_->GetFrame();
+
+  void *data;
+  output_frame->GetBytes(&data);
+
+  long rowbytes = output_frame->GetRowBytes();
+  long width = output_frame->GetWidth();
+  long height = output_frame->GetHeight();
+  long memSize = rowbytes * height;
+
+  glReadPixels(0, 0, fbo_->getWidth(), fbo_->getHeight(), GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
+  playout_->DrawFrameToDisplay();
+
+}
 
 void SDICameraIO::Display(std::shared_ptr<VideoFrame> frame){
 
@@ -136,27 +154,10 @@ void SDICameraIO::Display(std::shared_ptr<VideoFrame> frame){
 
   ci::gl::clear(ci::Color(0.0, 0.5, 0.1), true);
 
-  //DrawOnWindow(frame, fbo_->getBounds(), false);
-  //renderer::DrawTexture(frame->gpu_frame, glm::ivec2(frame->GetWidth(), frame->GetHeight()), glm::ivec2(fbo_->getBounds().getWidth(), fbo_->getBounds().getHeight()), ci::gl::GlslProgRef());
-  frame->gpu_frame->bind();
-  ci::gl::drawSolidRect(ci::Rectf(0, 0, 720, 576), glm::vec2(0, 0), glm::vec2(1, 1));
-  frame->gpu_frame->unbind();
-  //if (rendering_){
-  //  draw_psm_on_window(psm1, is_left);
-  //  draw_psm_on_window(psm2, is_left);
- // }
-
-  //if (rendering_model_){
-  //  draw_model_on_window(mesh_, gl_mesh_pose_, is_left);
- // }
-
-
+  DrawOnWindow(frame, fbo_->getBounds(), false);
+  
   //load the frame buffer data into the frame memory on the decklink card
   glReadPixels(0, 0, fbo_->getWidth(), fbo_->getHeight(), GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
-
-  //frame->bind();
-  //glGetTextureImageEXT(0, GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
-  //frame->unbind();
 
   fbo_->unbindFramebuffer();
 
@@ -172,8 +173,6 @@ void SDICameraIO::DrawOnWindow(std::shared_ptr<VideoFrame> frame, const ci::Rect
     ci::gl::clear(ci::Color(0.5, 0.1, 0.0), true);
 
   renderer::DrawTexture(frame->gpu_frame, glm::ivec2(frame->GetWidth(), frame->GetHeight()), glm::ivec2(bounds.getWidth(), bounds.getHeight()), ycrcb_shader_);
-
- 
 
 }
 
