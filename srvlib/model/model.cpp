@@ -59,9 +59,13 @@ void Model::InternalDraw(Node::Ptr rd, const float inc) {
   
   ci::gl::multModelMatrix(rd->GetWorldTransform(base_pose_));
 
-  ci::gl::ScopedTextureBind tex_scope(rd->GetTexture());
-  
-  ci::gl::draw(rd->GetMesh());
+  if (rd->HasTexture()){
+    ci::gl::ScopedTextureBind tex_scope(rd->GetTexture());
+    ci::gl::draw(rd->GetMesh());
+  }
+  else{
+    ci::gl::draw(rd->GetMesh());
+  }
 
   ci::gl::popModelView();
 

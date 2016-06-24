@@ -219,6 +219,8 @@ namespace srvlib {
     */
     virtual glm::mat4 GetDerivativeTransfromFromParent() const = 0;
 
+    bool HasTexture() const { return cpu_texture_ != nullptr; }
+
     /**
     * Accessor for the node's texture.
     * @return The texture.

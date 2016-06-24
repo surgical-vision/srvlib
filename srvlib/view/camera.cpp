@@ -204,7 +204,7 @@ void StereoCamera::moveEyeToLeftCam(ci::gl::GlslProgRef shader, const glm::mat4 
   glm::vec3 mvLightPos = glm::vec3(ci::gl::getModelView() * glm::vec4(0.0, 0.0, 0.0, 1.0f));
   glm::mat4 shadowMatrix = camP->getProjectionMatrix() * camP->getViewMatrix();
 
-  shader->uniform("tex0", 0);
+  //shader->uniform("tex0", 0);
   shader->uniform("uShadowMap", 0);
   shader->uniform("uLightPos", mvLightPos);
   shader->uniform("uShadowMatrix", shadowMatrix);
@@ -231,7 +231,7 @@ void StereoCamera::moveEyeToRightCam(ci::gl::GlslProgRef shader, const glm::mat4
   glm::vec3 mvLightPos = glm::vec3(ci::gl::getModelView() * glm::vec4(0.0, 0.0, 0.0, 1.0f));
   glm::mat4 shadowMatrix = camP->getProjectionMatrix() * camP->getViewMatrix();
 
-  shader->uniform("tex0", 0);
+  //shader->uniform("tex0", 0);
   shader->uniform("uShadowMap", 0);
   shader->uniform("uLightPos", mvLightPos);
   shader->uniform("uShadowMatrix", shadowMatrix);

@@ -57,6 +57,8 @@ namespace srvlib {
 
     Pose GetPose() const;
 
+    bool HasTexture() const { return internal_model_->HasTexture(); }
+
   protected:
     
     Node::Ptr internal_model_;
