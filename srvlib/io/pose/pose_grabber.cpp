@@ -18,9 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **/
 
-#include <windows.h>
-#include <wchar.h>
-
 #include <cinder/app/App.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_interpolation.hpp>
