@@ -320,8 +320,9 @@ namespace srvlib {
 
     virtual void SetOffsetsToNull() override;
 
-
   protected:
+
+    void LoadJointsFromFile(const boost::filesystem::path &suj_file, std::vector<double> &suj_vals, const size_t &size);
 
 #ifdef USE_ROS
     std::mutex lock_;

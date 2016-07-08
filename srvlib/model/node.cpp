@@ -45,7 +45,7 @@ void Node::LoadComponent(const std::string &mesh_path, const std::string &materi
 void Node::RenderTexture(int id){
   
   if (cpu_texture_ && !texture_) texture_ = ci::gl::Texture::create(cpu_texture_);
-  if (!mesh_) mesh_ = ci::gl::VboMesh::create(*loader_);
+  if (!mesh_) {mesh_ = ci::gl::VboMesh::create(*loader_); std::cerr << "LOADING MODEL TO GPU\n"; }
 
   if (drawing_flag_){
 

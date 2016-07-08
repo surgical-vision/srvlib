@@ -26,6 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <srvlib/io/pose/pose_grabber.hpp>
 #include <srvlib/utils/math.hpp>
 
+#include <boost/algorithm/string.hpp>
+
 using namespace srvlib;
 
 #ifdef USE_ISI_API
@@ -303,14 +305,83 @@ BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_t
 
 DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const std::string &output_dir, LoadSource source) : DHDaVinciPoseGrabber(joint, NO_INST, output_dir, source) {}
 
+inline boost::filesystem::path clean_path(boost::filesystem::path &p){
+
+  std::string path_tmp = p.string();
+  boost::algorithm::trim_right(path_tmp);
+  return boost::filesystem::path(path_tmp);
+
+}
+
 DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, const InstrumentType instrument_type, const std::string &output_dir, LoadSource source) : BaseDaVinciPoseGrabber(instrument_type, joint, output_dir, source) {
 
   load_source_ = source;
+
+
+  switch (target_joint_){
+
+  case davinci::DaVinciJoint::PSM1:
+    num_base_joints_ = chain_.mSUJ1OriginSUJ1Tip.size();
+    num_arm_joints_ = chain_.mPSM1OriginPSM1Tip.size();
+    break;
+  case davinci::DaVinciJoint::PSM2:
+    num_base_joints_ = chain_.mSUJ2OriginSUJ2Tip.size();
+    num_arm_joints_ = chain_.mPSM2OriginPSM2Tip.size();
+    break;
+  case davinci::DaVinciJoint::ECM:
+    num_base_joints_ = chain_.mSUJ3OriginSUJ3Tip.size();
+    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size(); 
+    break;
+  }
+
+
+  arm_offsets_ = std::vector<double>(num_arm_joints_, 0.0);
+  base_offsets_ = std::vector<double>(num_base_joints_, 0.0);
+  arm_joints_ = std::vector<double>(num_arm_joints_, 0.0);
+  base_joints_ = std::vector<double>(num_base_joints_, 0.0);
+
+  if (target_joint_ == davinci::DaVinciJoint::ECM)
+    SetupOffsets("0 0 0 0 0 0", "0 0 0 0");
+  else if (target_joint_ == davinci::DaVinciJoint::PSM1 || target_joint_ == davinci::DaVinciJoint::PSM2 || target_joint_ == davinci::DaVinciJoint::PSM3)
+    SetupOffsets("0 0 0 0 0 0", "0 0 0 0 0 0 0");
+
 
   if (load_source_ == FILE){
     //
   }
   else if (load_source_ == ROS){
+
+    std::vector<std::string> exts;
+    exts.push_back("txt");
+
+
+    ci::app::Platform *platform = ci::app::Platform::get();
+    std::cerr << "Loading file for: ";
+    if(target_joint_ == davinci::DaVinciJoint::ECM){
+      std::cerr << "ECM\n";
+      boost::filesystem::path suj_file = platform->getOpenFilePath("/home/", exts);
+      suj_file = clean_path(suj_file);
+    
+      boost::filesystem::path arm_file = platform->getOpenFilePath("/home/", exts);
+      arm_file = clean_path(arm_file);
+
+      LoadJointsFromFile(suj_file, base_joints_, num_base_joints_);
+      LoadJointsFromFile(arm_file, arm_joints_, num_arm_joints_);
+    }
+    else if(target_joint_ == davinci::DaVinciJoint::PSM1){
+      std::cerr << "PSM1\n";
+      boost::filesystem::path suj_file = platform->getOpenFilePath("/home/", exts);
+      suj_file = clean_path(suj_file);
+      LoadJointsFromFile(suj_file, base_joints_, num_base_joints_);
+    }
+    else if(target_joint_ == davinci::DaVinciJoint::PSM2){
+      std::cerr << "PSM2\n";
+      boost::filesystem::path suj_file = platform->getOpenFilePath("/home/", exts);
+      suj_file = clean_path(suj_file);
+      LoadJointsFromFile(suj_file, base_joints_, num_base_joints_);
+    }
+
+
 
   }
   else if (load_source_ == ISI){
@@ -354,34 +425,6 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, c
     ci::app::console() << "Load source = " << source << "and ISI = " << ISI << std::endl;
     throw std::runtime_error("Unsupported load type");
   }
-
-  switch (target_joint_){
-
-  case davinci::DaVinciJoint::PSM1:
-    num_base_joints_ = chain_.mSUJ1OriginSUJ1Tip.size();
-    num_arm_joints_ = chain_.mPSM1OriginPSM1Tip.size();
-    break;
-  case davinci::DaVinciJoint::PSM2:
-    num_base_joints_ = chain_.mSUJ2OriginSUJ2Tip.size();
-    num_arm_joints_ = chain_.mPSM2OriginPSM2Tip.size();
-    break;
-  case davinci::DaVinciJoint::ECM:
-    num_base_joints_ = chain_.mSUJ3OriginSUJ3Tip.size();
-    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size(); 
-    break;
-  }
-
-  arm_offsets_ = std::vector<double>(num_arm_joints_, 0.0);
-  base_offsets_ = std::vector<double>(num_base_joints_, 0.0);
-  arm_joints_ = std::vector<double>(num_arm_joints_, 0.0);
-  base_joints_ = std::vector<double>(num_base_joints_, 0.0);
-
-  if (target_joint_ == davinci::DaVinciJoint::ECM)
-    SetupOffsets("0 0 0 0 0 0", "0 0 0 0");
-  else if (target_joint_ == davinci::DaVinciJoint::PSM1 || target_joint_ == davinci::DaVinciJoint::PSM2 || target_joint_ == davinci::DaVinciJoint::PSM3)
-    SetupOffsets("0 0 0 0 0 0", "0 0 0 0 0 0 0");
-
-  ci::app::console() << "LOADING DONE" << std::endl;
 
 }
 
@@ -648,6 +691,31 @@ bool DHDaVinciPoseGrabber::LoadFromISI(){
 
 }
 #endif
+
+void DHDaVinciPoseGrabber::LoadJointsFromFile(const boost::filesystem::path &file, std::vector<double> &vals, const size_t &num_joints){
+
+  if(vals.size() != num_joints){
+    vals = std::vector<double>(num_joints,0);
+  }
+  
+  std::ifstream ifs(file.string());
+  if(!ifs.is_open()){
+    throw std::runtime_error("Error, could not open !");
+  }
+
+  try{
+    for (int i = 0; i < num_joints; ++i){
+      double x;
+      ifs >> x;
+      vals[i] = x;
+    }
+    
+  }
+  catch (std::ifstream::failure){
+    std::cerr << "Error loading vals from file.\n";
+  }
+
+}
 
 bool DHDaVinciPoseGrabber::ReadDHFromFiles(std::vector<double> &psm_base_joints, std::vector<double> &psm_arm_joints){
 
