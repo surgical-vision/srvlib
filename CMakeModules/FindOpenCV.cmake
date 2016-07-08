@@ -14,6 +14,7 @@
 # OPENCV2_LIBS the list of OpenCV 2.4 or greater libs (WIN32 MINGW compiler only)
 
 IF(WIN32)
+
 	FIND_PATH( OPENCV2_PATH include/opencv2/opencv.hpp
 		$ENV{OPENCV_HOME}
 		C:/OpenCV2.4/
@@ -52,10 +53,10 @@ IF(WIN32)
 			UNSET(OpenCV_LIBS CACHE)
 			if(BUILD_RELEASE_OPTION)
 				MESSAGE(STATUS "MSVC10 Release libraries OPENCV2_LIB_PATH:${OPENCV2_LIB_PATH}")
-				SET(OpenCV_LIBS "${OPENCV2_RELEASE_LIBS}" CACHE STRING "OpenCV library files")
+				SET(OpenCV_LIBS "${OPENCV2_RELEASE_LIBS}")
 			else(BUILD_RELEASE_OPTION)
 				MESSAGE(STATUS "MSVC10 Debug libraries OPENCV2_LIB_PATH:${OPENCV2_LIB_PATH}")
-				SET(OpenCV_LIBS "${OPENCV2_DEBUG_LIBS}" CACHE STRING "OpenCV library files")
+				SET(OpenCV_LIBS "${OPENCV2_DEBUG_LIBS}")
 			endif(BUILD_RELEASE_OPTION)
 		endif(MSVC10)
 				
@@ -68,10 +69,10 @@ IF(WIN32)
 			UNSET(OpenCV_LIBS CACHE)
 			if(BUILD_RELEASE_OPTION)
 				MESSAGE(STATUS "MSVC12 Release libraries OPENCV2_LIB_PATH:${OPENCV2_LIB_PATH}")
-				SET(OpenCV_LIBS "${OPENCV2_RELEASE_LIBS}" CACHE STRING "OpenCV library files")
+				SET(OpenCV_LIBS "${OPENCV2_RELEASE_LIBS}")
 			else(BUILD_RELEASE_OPTION)
 				MESSAGE(STATUS "MSVC12 Debug libraries OPENCV2_LIB_PATH:${OPENCV2_LIB_PATH}")
-				SET(OpenCV_LIBS "${OPENCV2_DEBUG_LIBS}" CACHE STRING "OpenCV library files")
+				SET(OpenCV_LIBS "${OPENCV2_DEBUG_LIBS}")
 			endif(BUILD_RELEASE_OPTION)
 		endif(MSVC12)
 
@@ -84,26 +85,45 @@ IF(WIN32)
 	endif( OPENCV2_PATH )
 
 ELSE(WIN32) # Linux
-	FIND_PATH( OPENCV2_INCLUDE_PATH opencv.hpp
-	# installation selected by user
-	$ENV{OPENCV_HOME}/include
-	# system placed in /usr/local/include
-	/usr/local/include/opencv2
-	# system placed in /usr/include
-	/usr/include/opencv2
-	)
-	
-	if( OPENCV2_INCLUDE_PATH )
-		MESSAGE( STATUS "Looking for OpenCV2.4 or greater - found")
-		MESSAGE( STATUS "OpenCV2.4 include path: ${OPENCV2_INCLUDE_PATH}" )
-		SET ( OPENCV2_FOUND 1 )
-	else( OPENCV2_INCLUDE_PATH )
-		message( STATUS "Looking for OpenCV2.4 or greater  - not found" )
-		SET ( OPENCV2_FOUND 0 )
-	endif( OPENCV2_INCLUDE_PATH )
 
-	
+MESSAGE( STATUS  "Looking for OpenCV2.4 or greater")
+
+  FIND_PATH( OPENCV2_PATH include/opencv2/opencv.hpp
+    # installation selected by user
+    $ENV{OPENCV_HOME}
+    )
+
+  if( OPENCV2_PATH )
+    MESSAGE( STATUS "Found OpenCV at ${OPENCV2_PATH}")
+    SET ( OPENCV2_FOUND 1 )
+    
+    # test for 64 or 32 bit
+    UNSET(BUILD_DIR CACHE)
+    if( CMAKE_SIZEOF_VOID_P EQUAL 8)
+      SET( BUILD_DIR ${OPENCV2_PATH}/build-x64 CACHE STRING "OpenCV library ")
+      MESSAGE("Using OpenCV 64-bit libraries")
+    else( CMAKE_SIZEOF_VOID_P EQUAL 8)
+      SET( BUILD_DIR ${OPENCV2_PATH}/build-x86 CACHE STRING "OpenCV library")
+      MESSAGE(STATUS "Using OpenCV 32-bit libraries")
+    endif( CMAKE_SIZEOF_VOID_P EQUAL 8)
+    
+    UNSET(OPENCV2_LIB_PATH CACHE)
+    SET(OPENCV2_LIB_PATH ${BUILD_DIR}/lib CACHE PATH "OpenCV library path")
+    file(GLOB OPENCV2_LIBS "${OPENCV2_LIB_PATH}/*.so")
+    if(CMAKE_BUILD_TYPE MATCHES RELEASE)
+      SET(OPENCV2_RELEASE_LIBS "${OPENCV2_LIBS}")
+    else(CMAKE_BUILD_TYPE MATCHES RELEASE)
+      SET(OPENCV2_DEBUG_LIBS "${OPENCV2_LIBS}")
+    endif(CMAKE_BUILD_TYPE MATCHES RELEASE)
+
+    UNSET(OpenCV_LIBS CACHE)
+    
+    # Set the includes
+    SET(OPENCV2_INCLUDE_PATH ${OPENCV2_PATH}/include/opencv2 ${OPENCV2_PATH}/include)
+    
+  else( OPENCV2_PATH )
+    message( STATUS "Looking for OpenCV2.4 or greater  - not found" )
+    SET ( OPENCV2_FOUND 0 )
+  endif( OPENCV2_PATH )
+  	
 ENDIF(WIN32)
-IF(OPENCV2_FOUND)
-		INCLUDE_DIRECTORIES( ${OPENCV2_INCLUDE_PATH})
-ENDIF(OPENCV2_FOUND)

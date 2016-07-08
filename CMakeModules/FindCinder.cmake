@@ -36,6 +36,16 @@ if(MSVC10)
   set(_compiler_SUFFIX "vc2010")
 endif()
 
+if(WIN32)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ".dll")
+  set(CMAKE_FIND_LIBRARY_PREFIXES "")
+endif(WIN32)
+
+if(UNIX)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so")
+  set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
+endif(UNIX)
+
 find_path(Cinder_ROOT_DIR
           NAMES include/cinder/Cinder.h
           PATH_SUFFIXES cinder_${Cinder_FIND_VERSION}_${_compiler_SUFFIX}
@@ -48,8 +58,9 @@ find_path(Cinder_INCLUDE_DIR
           HINTS "${Cinder_ROOT_DIR}"
           PATH_SUFFIXES "include")
 
-find_library(Cinder_LIBRARY_RELEASE "cinder.lib" HINTS "${Cinder_ROOT_DIR}/lib")
-find_library(Cinder_LIBRARY_DEBUG "cinder_d.lib" HINTS "${Cinder_ROOT_DIR}/lib")
+
+find_library(Cinder_LIBRARY_RELEASE "cinder" HINTS "${Cinder_ROOT_DIR}/lib")
+find_library(Cinder_LIBRARY_DEBUG "cinder_d" HINTS "${Cinder_ROOT_DIR}/lib")
 
 set(Cinder_LIBRARIES
   debug ${Cinder_LIBRARY_DEBUG}

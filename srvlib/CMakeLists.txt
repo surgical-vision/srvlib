@@ -121,6 +121,17 @@ if(Boost_FOUND)
     list(APPEND LINK_LIBS "${Boost_LIBRARIES}")
 endif()
 
+#Cinder
+
+find_package(Cinder REQUIRED)
+if(CINDER_FOUND)
+  message("Found Cinder")
+  list(APPEND USER_INC "${Cinder_INCLUDE_DIR}" )
+  list(APPEND LINK_LIBS "${Cinder_LIBRARIES}" )
+else(CINDER_FOUND)
+  message("Cinder Not Found")
+endif()
+
 #Opencv
 find_package(OpenCV REQUIRED)
 if(OPENCV2_FOUND)
@@ -135,19 +146,16 @@ if(OPENCV2_FOUND)
       list (APPEND DEBUG_LINK_LIBS debug ${x})
     endforeach()
   else(WIN32)
-  #needs fixing possibly!
-    list(APPEND LINK_LIBS "${OPENCV2_LIBRARIES}" )
+    #needs fixing possibly!
+    foreach(x ${OPENCV2_RELEASE_LIBS})
+      list (APPEND RELEASE_LINK_LIBS optimized ${x})
+    endforeach()
+    foreach(x ${OPENCV2_DEBUG_LIBS})
+      list (APPEND DEBUG_LINK_LIBS debug ${x})
+    endforeach()
   endif()
 endif()
 
-#Cinder
-
-find_package(Cinder REQUIRED)
-if(Cinder_FOUND)
-  message("Found Cinder")
-  list(APPEND USER_INC "${Cinder_INCLUDE_DIR}" )
-  list(APPEND LINK_LIBS "${Cinder_LIBRARIES}" )
-endif()
 
 #######################################################
 ## Add Libraries / Include Directories / Link directories

@@ -1,7 +1,11 @@
 #include <srvlib/io/video/sdi/sdi.hpp>
 #include <cinder/gl/draw.h>
 #include <srvlib/view/renderer.hpp>
+#ifdef _WIN_
 #include <gl/glu.h>
+#else
+#include <GL/glu.h>
+#endif
 
 #include <cinder/CinderOpenCV.h>
 #include <cinder/app/App.h>
