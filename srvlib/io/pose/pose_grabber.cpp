@@ -65,23 +65,25 @@ BasePoseGrabber::BasePoseGrabber(const std::string &output_dir) : do_draw_(false
   std::stringstream ss;
   ss << "Pose grabber " << grabber_num_id_;
   param_modifier_ = ci::params::InterfaceGl::create(ci::app::getWindow(), ss.str(), ci::app::toPixels(glm::ivec2(50, 50)));
-  param_modifier_->hide();  
+  param_modifier_->hide();
 
   grabber_num_id_++;
 
 }
 
+#ifdef USE_DA_VINCI
 glm::mat4 SE3DaVinciPoseGrabber::RemoveOutOfPlaneRotation(const glm::mat4 &pose) const {
 
   glm::quat rotation = glm::quat_cast(pose);
   glm::vec3 eulers = GetXZYEulersFromQuaternion(rotation);
-  
+
   eulers[1] = 0;
   glm::mat4 m = MatrixFromIntrinsicEulers(eulers[0], 0, 0, "xzy");
   srvlib::math::set_translate(m, glm::vec3(pose[3]));
 
   return m;
 }
+
 
 void SE3DaVinciPoseGrabber::GetSubWindowCoordinates(const srvlib::Camera &camera, std::array<glm::ivec2, 4> &rectangle, cv::Mat &affine_transform) {
 
@@ -93,7 +95,7 @@ void SE3DaVinciPoseGrabber::GetSubWindowCoordinates(const srvlib::Camera &camera
   const glm::vec2 center_of_mass = camera.ProjectVertexToPixel(glm::vec3(pose * glm::vec4(0, 0, 0, 1)));
   const glm::vec2 angle_of_shaft = camera.ProjectVertexToPixel(glm::vec3(pose * glm::vec4(0, 0, 10, 1)));
 
-  glm::vec2 local_vertical_axis = angle_of_shaft - center_of_mass; 
+  glm::vec2 local_vertical_axis = angle_of_shaft - center_of_mass;
   glm::normalize(local_vertical_axis);
   glm::vec2 local_horizontal_axis = glm::vec2(local_vertical_axis[1], -local_vertical_axis[0]);
 
@@ -124,6 +126,7 @@ void SE3DaVinciPoseGrabber::GetSubWindowCoordinates(const srvlib::Camera &camera
   affine_transform.at<float>(1, 2) = bottom_left[1];
 
 }
+#endif
 
 void BasePoseGrabber::convertFromBouguetPose(const glm::mat4 &in_pose, glm::mat4 &out_pose){
 
@@ -160,8 +163,8 @@ PoseGrabber::PoseGrabber(const ConfigReader &reader, const std::string &output_d
   catch (std::runtime_error){
     //e.g. no model
   }
-  
-  
+
+
   ifs_.open(reader.get_element("pose-file"));
 
   if (!ifs_.is_open()){
@@ -191,7 +194,7 @@ bool PoseGrabber::LoadPose(const bool update_as_new){
     }
 
   }
- 
+
   // update the model with the pose
   model_->SetBasePose(cached_model_pose_);
 
@@ -268,8 +271,9 @@ void PoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
 
 }
 
+#ifdef USE_DA_VINCI
 BaseDaVinciPoseGrabber::BaseDaVinciPoseGrabber(const InstrumentType instrument_type, const ConfigReader &reader, const std::string &output_dir) : BasePoseGrabber(output_dir) {
-  
+
   load_source_ = LoadSource::FILE;
   model_.reset(new davinci::DaVinciInstrument());
 
@@ -330,7 +334,7 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, c
     break;
   case davinci::DaVinciJoint::ECM:
     num_base_joints_ = chain_.mSUJ3OriginSUJ3Tip.size();
-    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size(); 
+    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size();
     break;
   }
 
@@ -361,7 +365,7 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, c
       std::cerr << "ECM\n";
       boost::filesystem::path suj_file = platform->getOpenFilePath("/home/", exts);
       suj_file = clean_path(suj_file);
-    
+
       boost::filesystem::path arm_file = platform->getOpenFilePath("/home/", exts);
       arm_file = clean_path(arm_file);
 
@@ -415,7 +419,7 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const davinci::DaVinciJoint &joint, c
         isi_disconnect();
         throw(std::runtime_error("Failed to start stream\n"));
       }
-    
+
     }
 #else
     throw std::runtime_error("ISI Api support not built!");
@@ -454,7 +458,7 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const InstrumentType instrument_type,
     break;
   case davinci::DaVinciJoint::ECM:
     num_base_joints_ = chain_.mSUJ3OriginSUJ3Tip.size();
-    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size(); 
+    num_arm_joints_ = 4;//chain_.mECM1OriginECM1Tip.size();
     break;
   }
 
@@ -467,7 +471,7 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const InstrumentType instrument_type,
     SetupOffsets(reader.get_element("base-offset"), reader.get_element("arm-offset"));
   }
   catch (std::runtime_error &){
-    
+
   }
 
   base_ifs_.open(reader.get_element("base-joint-file"));
@@ -490,12 +494,12 @@ DHDaVinciPoseGrabber::DHDaVinciPoseGrabber(const InstrumentType instrument_type,
     se3_ofs_file_ = output_dir + "/" + reader.get_element("output-se3-file");
   }
   catch (...){
-    se3_ofs_file_ = output_dir + "/" + reader.get_element("output-se3"); //stupid old code 
+    se3_ofs_file_ = output_dir + "/" + reader.get_element("output-se3"); //stupid old code
   }
-  
+
 }
 
-DHDaVinciPoseGrabber::~DHDaVinciPoseGrabber() { 
+DHDaVinciPoseGrabber::~DHDaVinciPoseGrabber() {
 
   if (load_source_ == ISI){
 #ifdef USE_ISI_API
@@ -509,7 +513,7 @@ DHDaVinciPoseGrabber::~DHDaVinciPoseGrabber() {
 void DHDaVinciPoseGrabber::SetupOffsets(const std::string &base_offsets, const std::string &arm_offsets){
 
   std::stringstream ss;
-  
+
   param_modifier_->addText("", "label=`Edit the set up joints`");
 
   ss << base_offsets;
@@ -653,7 +657,7 @@ bool DHDaVinciPoseGrabber::LoadFromISI(){
 
     ISI_MANIP_INDEX mid;
     if (target_joint_ == davinci::DaVinciJoint::PSM1){
-      mid = ISI_PSM1; 
+      mid = ISI_PSM1;
     }
     else if (target_joint_ == davinci::DaVinciJoint::PSM2){
       mid = ISI_PSM2;
@@ -674,7 +678,7 @@ bool DHDaVinciPoseGrabber::LoadFromISI(){
     for (int i = 0; i != stream_data.count; i++){
       arm_joints_[i] = stream_data.data[i];
     }
-    
+
 
     isi_get_stream_field(mid, ISI_SUJ_JOINT_VALUES, &stream_data);
     for (int i = 0; i != stream_data.count; i++){
@@ -697,7 +701,7 @@ void DHDaVinciPoseGrabber::LoadJointsFromFile(const boost::filesystem::path &fil
   if(vals.size() != num_joints){
     vals = std::vector<double>(num_joints,0);
   }
-  
+
   std::ifstream ifs(file.string());
   if(!ifs.is_open()){
     throw std::runtime_error("Error, could not open !");
@@ -709,7 +713,7 @@ void DHDaVinciPoseGrabber::LoadJointsFromFile(const boost::filesystem::path &fil
       ifs >> x;
       vals[i] = x;
     }
-    
+
   }
   catch (std::ifstream::failure){
     std::cerr << "Error loading vals from file.\n";
@@ -843,7 +847,7 @@ void SE3DaVinciPoseGrabber::SetupOffsets(const std::string &base_offsets, const 
   ss << base_offsets;
   ss >> x_rotation_offset_;
   param_modifier_->addParam("X rotation offset", &x_rotation_offset_, "min=-10 max=10 step= 0.01 keyIncr=r keyDecr=R");
-  
+
 
   ss << base_offsets;
   ss >> y_rotation_offset_;
@@ -886,7 +890,7 @@ void SE3DaVinciPoseGrabber::SetupOffsets(const std::string &base_offsets, const 
 
 void SE3DaVinciPoseGrabber::SetOffsetsToNull() {
 
-  entire_x_rotation_offset_ = 0.0f; 
+  entire_x_rotation_offset_ = 0.0f;
   entire_y_rotation_offset_ = 0.0f;
   entire_z_rotation_offset_ = 0.0f;
 
@@ -954,9 +958,9 @@ glm::mat4 SE3DaVinciPoseGrabber::MatrixFromIntrinsicEulers(float xRotation, floa
   float siny = ci::math<float>::sin(yRotation);
   float sinz = ci::math<float>::sin(zRotation);
 
-  glm::mat3 xRotationMatrix; 
-  glm::mat3 yRotationMatrix; 
-  glm::mat3 zRotationMatrix; 
+  glm::mat3 xRotationMatrix;
+  glm::mat3 yRotationMatrix;
+  glm::mat3 zRotationMatrix;
 
   xRotationMatrix[1][1] = xRotationMatrix[2][2] = cosx;
   xRotationMatrix[2][1] = -sinx;
@@ -1003,7 +1007,7 @@ inline glm::quat QuaternionFromEulers(float xRotation, float yRotation, float zR
 
   float Cy = ci::math<float>::cos(yRotation);
   float Sy = ci::math<float>::sin(yRotation);
-                            
+
   float Cz = ci::math<float>::cos(zRotation);
   float Sz = ci::math<float>::sin(zRotation);
 
@@ -1019,7 +1023,7 @@ inline glm::quat QuaternionFromEulers(float xRotation, float yRotation, float zR
 */
 
 glm::vec3 SE3DaVinciPoseGrabber::GetXYZEulersFromQuaternion(const glm::quat &quaternion) const {
-    
+
   glm::vec3 angles;
 //
 //  /*
@@ -1030,12 +1034,12 @@ glm::vec3 SE3DaVinciPoseGrabber::GetXYZEulersFromQuaternion(const glm::quat &qua
 //                        q(iel).e(2).*q(iel).e(4)));
 //                    angles(3,iel) = atan2(2.*(q(iel).e(2).*q(iel).e(3)+ ...
 //                        q(iel).e(4).*q(iel).e(1)),(q(iel).e(1).^2+ ...
-//                        q(iel).e(2).^2-q(iel).e(3).^2-q(iel).e(4).^2));  
+//                        q(iel).e(2).^2-q(iel).e(3).^2-q(iel).e(4).^2));
 //  */
 
   angles[0] = atan2(2 * (quaternion.x*quaternion.w + quaternion.z*quaternion.y), (quaternion.w * quaternion.w - quaternion.x * quaternion.x - quaternion.y * quaternion.y + quaternion.z * quaternion.z));
   angles[1] = asin(2 * (quaternion.y*quaternion.w - quaternion.x*quaternion.z));
-  angles[2] = atan2(2 * (quaternion.x*quaternion.y + quaternion.z*quaternion.w), (quaternion.w * quaternion.w + quaternion.x * quaternion.x - quaternion.y * quaternion.y - quaternion.z * quaternion.z));  
+  angles[2] = atan2(2 * (quaternion.x*quaternion.y + quaternion.z*quaternion.w), (quaternion.w * quaternion.w + quaternion.x * quaternion.x - quaternion.y * quaternion.y - quaternion.z * quaternion.z));
   return angles;
 
 }
@@ -1074,7 +1078,7 @@ glm::vec3 SE3DaVinciPoseGrabber::GetZYXEulersFromQuaternion(const glm::quat &qua
 
   angles[0] = atan2(2 * (quaternion.z*quaternion.w - quaternion.x*quaternion.y), (quaternion.w * quaternion.w + quaternion.x * quaternion.x - quaternion.y * quaternion.y - quaternion.z * quaternion.z));
   angles[1] = asin(2 * (quaternion.x*quaternion.z + quaternion.y*quaternion.w));
-  angles[2] = atan2(2 * (quaternion.x*quaternion.w - quaternion.y*quaternion.z), 
+  angles[2] = atan2(2 * (quaternion.x*quaternion.w - quaternion.y*quaternion.z),
     (quaternion.w * quaternion.w - quaternion.x * quaternion.x - quaternion.y * quaternion.y + quaternion.z * quaternion.z));
 
   return angles;
@@ -1102,7 +1106,7 @@ void SE3DaVinciPoseGrabber::SetPose(glm::vec3 &translation, glm::quat &rotation,
 
 
 void SE3DaVinciPoseGrabber::GetPose(glm::vec3 &translation, glm::vec3 &rotation, glm::vec3 &articulation) const {
-  
+
   translation = translation_;
 
   rotation = GetZYXEulersFromQuaternion(rotation_);
@@ -1115,11 +1119,11 @@ void SE3DaVinciPoseGrabber::GetPose(glm::vec3 &translation, glm::vec3 &rotation,
 void SE3DaVinciPoseGrabber::EditPose(glm::vec3 &translation, glm::vec3 &rotation, glm::vec3 &articulation){
 
   //translation_[0] += 4;
-  
+
   translation_ = translation;
 
   glm::vec3 current_rotation = GetZYXEulersFromQuaternion(rotation_ * glm::quat(current_user_supplied_offset_));
- 
+
   for (int i = 0; i < 3; ++i)
     wrist_dh_params_[i] = articulation[i];
 
@@ -1129,7 +1133,7 @@ void SE3DaVinciPoseGrabber::EditPose(glm::vec3 &translation, glm::vec3 &rotation
   model_->SetBasePose(shaft_pose_);
 
   model_->EditPose(glm::quat(shaft_pose_), project(shaft_pose_[3]), glm::vec3(wrist_dh_params_[0], wrist_dh_params_[1], wrist_dh_params_[2]));
-  
+
 }
 
 bool SE3DaVinciPoseGrabber::LoadPoseAsQuaternion(){
@@ -1168,7 +1172,7 @@ bool SE3DaVinciPoseGrabber::LoadPoseAsQuaternion(){
     //glm::mat4 qqnew = MatrixFromIntrinsicEulers(3.141592 / 2 + 0 * eulers[0], 0 * eulers[1], eulers[2]);
     //translation_[0] *= 0;
     //translation_[1] *= 0;
-    
+
     //rotation_ = qqnew;
 
     glm::mat4 rotation_m(rotation_);
@@ -1204,7 +1208,7 @@ bool SE3DaVinciPoseGrabber::LoadPoseAsMatrix(){
 
     }
 
- 
+
     translation_ = translation;
     rotation_ = glm::quat(rotation_matrix);
 
@@ -1244,9 +1248,9 @@ bool SE3DaVinciPoseGrabber::LoadPoseAsEulerAngles(){
     for (int i = 0; i < 3; ++i){
       wrist_dh_params_[i] = articulation[i];
     }
-    
+
     glm::mat4 rotation_matrix = MatrixFromIntrinsicEulers(eulers[0], eulers[1], eulers[2], "zyx");
-    
+
     rotation_ = glm::quat(rotation_matrix);
 
     glm::mat4 rotation_m(rotation_);
@@ -1261,10 +1265,8 @@ bool SE3DaVinciPoseGrabber::LoadPoseAsEulerAngles(){
   }
 }
 
-
-
 bool SE3DaVinciPoseGrabber::LoadPose(const bool update_as_new){
-  
+
   has_loaded_pose_ = true;
 
   do_draw_ = false; //set to true only if we read a 'good' pose
@@ -1293,7 +1295,7 @@ bool SE3DaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
   }
 
-  
+
   auto offset = MatrixFromIntrinsicEulers(x_rotation_offset_ - entire_x_rotation_offset_, y_rotation_offset_ - entire_y_rotation_offset_, z_rotation_offset_ - entire_z_rotation_offset_, "zyx");
 
   entire_x_rotation_offset_ = x_rotation_offset_;
@@ -1302,7 +1304,7 @@ bool SE3DaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
   current_user_supplied_offset_ = current_user_supplied_offset_ * offset;
   shaft_pose_ = shaft_pose_ * offset;
-  
+
   srvlib::math::set_translate(shaft_pose_, (translation_ + glm::vec3(x_translation_offset_, y_translation_offset_, z_translation_offset_)));
 
   do_draw_ = true;
@@ -1328,7 +1330,7 @@ void SE3DaVinciPoseGrabber::WritePoseToStream() {
   if (!ofs_.is_open()) throw(std::runtime_error("Error, could not open file"));
 
   ofs_ << WriteSE3ToString(model_->GetShaftPose()) << "\n";
-  
+
   for (size_t i = 0; i < wrist_dh_params_.size(); ++i){
     ofs_ << wrist_dh_params_[i] << "\n";
   }
@@ -1351,11 +1353,11 @@ void SE3DaVinciPoseGrabber::WritePoseToStream(const glm::mat4 &camera_pose)  {
     ofs_ << wrist_dh_params_[i] << "\n";
   }
   ofs_ << "\n";
-  
+
 }
 
 void DHDaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_left, glm::mat4 &clasper_right){
-	
+
 	if (target_joint_ == davinci::PSM1 || target_joint_ == davinci::PSM2){
 
 		srvlib::davinci::PSMData psm;
@@ -1372,7 +1374,7 @@ void DHDaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_left
     glm::vec4 articulation;
 		if (target_joint_ == davinci::PSM1)
       buildKinematicChainPSM1(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
-		else if (target_joint_ == davinci::PSM2)          
+		else if (target_joint_ == davinci::PSM2)
       buildKinematicChainPSM2(chain_, psm, base_pose, articulation[0], articulation[1], articulation[2], articulation[3]);
 
     model_->EditPose(glm::quat(base_pose), project(base_pose[3]), glm::vec3(articulation[0], articulation[1], articulation[2]));
@@ -1393,14 +1395,14 @@ void DHDaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_left
 void SE3DaVinciPoseGrabber::GetModelPose(glm::mat4 &head, glm::mat4 &clasper_left, glm::mat4 &clasper_right){
 
   if (target_joint_ == davinci::PSM1 || target_joint_ == davinci::PSM2){
-  
+
     //model_->Shaft().transform_ = shaft_pose_;
 
     srvlib::davinci::PSMData psm;
     for (size_t i = 0; i < num_wrist_joints_; ++i){
       psm.jnt_pos[i] = wrist_dh_params_[i];
     }
-    
+
     //if (target_joint_ == davinci::PSM1)
     //  buildKinematicChainPSM1(chain_, psm, model_->Shaft().transform_, model_->Head().transform_, model_->Clasper1().transform_, model_->Clasper2().transform_);
     //else if (target_joint_ == davinci::PSM2)
@@ -1464,7 +1466,7 @@ bool QuaternionDaVinciPoseGrabber::LoadPose(const bool update_as_new){
         break;
       }
       std::stringstream ss(line);
-      
+
       glm::vec3 translation;
       for (size_t col = 0; col < 3; ++col){
         float val;
@@ -1472,7 +1474,7 @@ bool QuaternionDaVinciPoseGrabber::LoadPose(const bool update_as_new){
         translation[col] = val;
       }
 
-      
+
 
       glm::vec4 quats;
       for (size_t col = 0; col < 4; ++col){
@@ -1483,7 +1485,7 @@ bool QuaternionDaVinciPoseGrabber::LoadPose(const bool update_as_new){
 
       shaft_pose_ = glm::mat4(glm::quat(quats[0], quats[1], quats[2], quats[3]));
       srvlib::math::set_translate(shaft_pose_, translation);
-      
+
 
       //update the reference list of old tracks for drawing trajectories
       reference_frame_tracks_.push_back(shaft_pose_);
@@ -1510,3 +1512,4 @@ QuaternionDaVinciPoseGrabber::QuaternionDaVinciPoseGrabber(const InstrumentType 
   checkSelfName(reader.get_element("name"));
 
 }
+#endif
